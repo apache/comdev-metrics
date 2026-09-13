@@ -22,13 +22,10 @@ BASE_URL = "https://projects.apache.org/json/foundation/"
 # Files we fetch and cache locally
 FOUNDATION_FILES = {
     "committees.json": "PMC roster, chairs, charters, established dates",
-    "committees-retired.json": "Retired committees",
     "people.json": "Committer → project membership mapping",
-    "podlings.json": "Current podlings + status",
-    "podlings-history.json": "Podling lifecycle (start, graduation, retirement dates)",
+    # "podlings.json": "Current podlings + status", # NOT USED (YET?)
     "releases.json": "Release history per project",
     "repositories.json": "Git/SVN repository listing",
-    "accounts-evolution2.json": "Account creation over time",
     "projects.json": "Master project metadata (from DOAP files)",
 }
 
