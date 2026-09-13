@@ -18,8 +18,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Cache data
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+      - name: Fetch cache data
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
         with:
           key: data-cache
           path: site/data
@@ -35,6 +35,12 @@ jobs:
           cp config.example.yml config.yml
           uv run asfmetrics --project attic # initial limited test
           ls -lR site # after
+
+      - name: Update cache data
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+        with:
+          key: data-cache
+          path: site/data
 
       - name: Upload generated output - debug
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
