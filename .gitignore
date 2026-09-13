@@ -1,9 +1,6 @@
 # Secrets (tokens, credentials)
 .secrets
 
-# Generated data and site output
-site/data/
-
 # Python
 __pycache__/
 *.pyc
