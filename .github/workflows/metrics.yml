@@ -31,7 +31,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          ls -lR site # before
           cp config.example.yml config.yml
           uv run asfmetrics --project attic --skip-git # initial limited test
-          ls -lR site
+          ls -lR site # after
 
