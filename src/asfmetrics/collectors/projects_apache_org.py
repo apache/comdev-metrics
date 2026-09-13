@@ -20,12 +20,13 @@ import httpx
 BASE_URL = "https://projects.apache.org/json/foundation/"
 
 # Files we fetch and cache locally
+# Not all are needed at run-time: see the comments below
 FOUNDATION_FILES = {
-    "committees.json": "PMC roster, chairs, charters, established dates",
+    "committees.json": "PMC roster, chairs, charters, established dates", # needed by website
     "committees-retired.json": "Retired committees",
     "people.json": "Committer → project membership mapping",
     "podlings.json": "Current podlings + status",
-    "releases.json": "Release history per project",
+    "releases.json": "Release history per project", # needed by website
     "repositories.json": "Git/SVN repository listing",
     "projects.json": "Master project metadata (from DOAP files)",
 }
