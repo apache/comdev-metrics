@@ -5,11 +5,14 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    env:
+      cache-name: data-cache-metrics
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -21,7 +24,7 @@ jobs:
       - name: Fetch cache data
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
         with:
-          key: data-cache
+          key: ${{ env.cache-name }}
           path: site/data
 
       - name: Install dependencies
@@ -30,16 +33,27 @@ jobs:
       - name: build # initial limited test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ls -lR site # before
           cp config.example.yml config.yml
           uv run asfmetrics --project attic # initial limited test
           ls -lR site # after
+          # Check if there is a cache entry before trying to delete
+          # This ensure delete failures cause the build to fail
+          if [ -n "$(gh cache list -k ${{ env.cache-name }} --json id --jq '.[].id')" ]
+          then
+            echo "Removing cache"
+            gh cache delete ${{ env.cache-name }}
+          else
+            echo "No cache found"
+          fi
+
 
       - name: Update cache data
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
         with:
-          key: data-cache
+          key: ${{ env.cache-name }}
           path: site/data
 
       - name: Upload generated output - debug
