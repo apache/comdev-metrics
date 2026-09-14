@@ -1,65 +1,72 @@
 name: Metrics
+# Builds the site and uploads it to github-pages
+# Caching is achieved by downloading the gh-pages archive created at the end of each run
 
 on:
+  # cron: TBA
   workflow_dispatch:
 
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# Actions is needed for gh run download
 permissions:
   contents: read
-  actions: write
+  pages: write
+  id-token: write
+  actions: read
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    env:
-      cache-name: data-cache-metrics
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
-
-      - name: Fetch cache data
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
-        with:
-          key: ${{ env.cache-name }}
-          path: site/data
-
+      - name: Setup GH Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - name: Install dependencies
         run: uv sync --all-groups
-
-      - name: build # initial limited test
+      - name: Build site
+        # GH_TOKEN is needed by GH actions
+        # GITHUB_TOKEN is used by the asfmetrics code
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          ls -lR site # before
-          cp config.example.yml config.yml
-          uv run asfmetrics --project attic # initial limited test
-          ls -lR site # after
-          # Check if there is a cache entry before trying to delete
-          # This ensure delete failures cause the build to fail
-          if [ -n "$(gh cache list -k ${{ env.cache-name }} --json id --jq '.[].id')" ]
+          # fetch the previously deployed site, which contains the cached data
+          if gh run download --name github-pages --dir /tmp/ghp
           then
-            echo "Removing cache"
-            gh cache delete ${{ env.cache-name }}
+            rm -rf site/data # drop any existing data
+            mkdir site/data
+            # unpack the archive
+            tar xvf /tmp/ghp/artifact.tar --cd site/data
           else
-            echo "No cache found"
+            echo "No previous entry found"
           fi
+          # Now build the site:
+          cp config.example.yml config.yml
+          uv run asfmetrics --project attic --skip-git # initial limited test
 
-
-      - name: Update cache data
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
-        with:
-          key: ${{ env.cache-name }}
-          path: site/data
-
-      - name: Upload generated output - debug
+      - name: Upload artifact 
+        # This contains the site and related json files
+        # We use this to deploy the site to gh-pages and as a data cache
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: generated-site
+          # Upload site to artifact.jar
           path: site
-          retention-days: 14
-
+      - name: Deploy to GitHub Pages
+        # This packages artifact.jar into the artifact github-pages (as a zip file)
+        # The site is then deployed to TBA
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
