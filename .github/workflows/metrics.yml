@@ -33,7 +33,7 @@ jobs:
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
-      # Temp disable
+      # Temp disable until GH pages enabled
       # - name: Setup GH Pages
       #   uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - name: Install dependencies
@@ -66,8 +66,9 @@ jobs:
         with:
           # Upload site to artifact.jar
           path: site
-      - name: Deploy to GitHub Pages
-        # This packages artifact.jar into the artifact github-pages (as a zip file)
-        # The site is then deployed to TBA
-        id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      # Temp disable until GH pages enabled
+      # - name: Deploy to GitHub Pages
+      #   # This packages artifact.jar into the artifact github-pages (as a zip file)
+      #   # The site is then deployed to TBA
+      #   id: deployment
+      #   uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
