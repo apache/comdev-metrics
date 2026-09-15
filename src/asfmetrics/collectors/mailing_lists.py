@@ -200,6 +200,7 @@ def collect_mailing_list_stats(project: str, config: dict) -> dict | None:
     domain_overrides = {
         "comdev": "community.apache.org",
         "infrastructure": "infra.apache.org",
+        "whimsy": "whimsical.apache.org",
     }
     domain = domain_overrides.get(project, f"{project}.apache.org")
 
@@ -369,6 +370,7 @@ def discover_all_active_projects(config: dict) -> list[str]:
     reverse_domain = {
         "community.apache.org": "comdev",
         "infra.apache.org": "infrastructure",
+        "whimsical.apache.org": "whimsy",
     }
 
     active_projects = set()
