@@ -56,7 +56,7 @@ jobs:
           fi
           # Now build the site:
           cp config.example.yml config.yml
-          uv run asfmetrics --project attic --skip-git # initial limited test
+          uv run asfmetrics --project attic # initial limited test
 
       - name: Upload artifact
         # keep whatever has been downloaded so far
@@ -73,6 +73,6 @@ jobs:
           retention-days: 14
       - name: Deploy to GitHub Pages
         # This packages artifact.jar into the artifact github-pages (as a zip file)
-        # The site is then deployed to TBA
+        # The site is then deployed to https://apache.github.io/comdev-metrics/
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
