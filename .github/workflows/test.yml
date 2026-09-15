@@ -19,6 +19,8 @@ jobs:
       # - name: Checkout source
       #   uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check which is latest usable artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh api /repos/$GITHUB_ACTION_REPOSITORY/actions/artifacts | tee artifacts.json
           jq <artifacts.json '.artifacts[]|"\(.created_at) \(.name) \(.expires_at)"' | tee extract.txt
