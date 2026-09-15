@@ -1,0 +1,25 @@
+name: Test
+# Temporary test workflow
+
+on:
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# Actions is needed for gh run download
+permissions:
+  contents: read
+  # pages: write
+  # id-token: write
+  actions: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # - name: Checkout source
+      #   uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check which is latest usable artifact
+        run: |
+          gh api /repos/$GITHUB_ACTION_REPOSITORY/actions/artifacts | tee artifacts.json
+          jq <artifacts.json '.artifacts[]|"\(.created_at) \(.name) \(.expires_at)"' | tee extract.txt
+          grep ' github-pages \| generated-site ' extract.txt | sort -r | head -1 | cut -d' ' -f 2
