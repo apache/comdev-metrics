@@ -56,7 +56,7 @@ jobs:
           fi
           # Now build the site:
           cp config.example.yml config.yml
-          uv run asfmetrics --project attic # initial limited test
+          uv run asfmetrics
 
       - name: Upload artifact
         # keep whatever has been downloaded so far
