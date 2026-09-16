@@ -25,6 +25,6 @@ jobs:
           export | grep 'GITHUB_.*REF'
           gh api /repos/$GITHUB_REPOSITORY/actions/artifacts | tee artifacts.json
           # Extract required parts
-          jq <artifacts.json '.artifacts[]|"\(.created_at) \(.name) \(.workflow_run.head_branch\) \(.expires_at)"' | tee extract.txt
+          jq <artifacts.json '.artifacts[]|"\(.created_at) \(.name) \(.workflow_run.head_branch) \(.expires_at)"' | tee extract.txt
           # ensure artifact comes from this branch
           grep " github-pages $GITHUB_REF_NAME \| generated-site $GITHUB_REF_NAME " extract.txt | sort -r | head -1 | cut -d' ' -f 2
