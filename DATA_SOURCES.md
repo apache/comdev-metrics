@@ -92,7 +92,7 @@ Source: `https://svn.apache.org/repos/asf/comdev/projects.apache.org/trunk/`
 - **Repo inventory**: GitHub org listing → `_project_map.json` (auto-run on first use)
 - **Dashboard**: 12-month rolling window with linear regression trend lines
   - Current month extrapolated to full-month estimate for trend accuracy
-- **Health classification**: Deterministic QoQ trend analysis (Sharp Decline / Declining / Dormant)
+- **Activity trend classification**: Deterministic QoQ trend analysis (Sharp Decline / Declining / Dormant)
   - Fixed thresholds, only human discussion lists, current partial month excluded
 
 ### Phase 2 (richer data, may need ASF Infra coordination)
