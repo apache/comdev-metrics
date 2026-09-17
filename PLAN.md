@@ -68,7 +68,7 @@ activity of every Apache project with 12-month rolling trends.
 | 11 | Next Committer integration (PMC-only, LDAP gated) | ⬜ |
 | 12 | Production deployment (GitHub Pages) | ✅ Done |
 
-**Status:** Dashboard running at https://boxofclue.com/comdev-metrics/
+**Status:** Dashboard running at https://apache.github.io/comdev-metrics/
 with 205+ projects collecting successfully.
 
 ## Architecture
@@ -144,7 +144,7 @@ Current partial month excluded. Projects must have data files to be assessed.
 ### GitHub Actions Workflow (Production)
 
 Sebb set up a GitHub Actions workflow that:
-1. Runs the full collection pipeline (foundation data → mailing lists → git → health)
+1. Runs the full collection pipeline (foundation data → mailing lists → git → trend classification)
 2. Uploads the output `site/` directory as a runtime artifact (cached between runs)
 3. Deploys to GitHub Pages at https://apache.github.io/comdev-metrics/
 
@@ -152,22 +152,24 @@ The build does not update any files in the repository itself — only the
 artifact/Pages output. GitHub Actions provides a temporary `GITHUB_TOKEN`
 with sufficient rate limits (ASF has GitHub Enterprise: 15,000 req/hr).
 
+The workflow:
+- Checks out the source
+- Downloads the previously-deployed site (contains cached data from prior runs)
+- Copies `config.example.yml` → `config.yml` and runs `uv run asfmetrics`
+- Uploads the entire `site/` directory as a Pages artifact (14-day retention for caching)
+- Deploys to GitHub Pages
+
+Currently triggered manually (`workflow_dispatch`); scheduled cron TBD.
+
 GitHub Pages enabled via [INFRA-28405](https://issues.apache.org/jira/browse/INFRA-28405).
 
 First full run took ~2 hours (mostly git activity fetch); subsequent runs
 should be much faster due to caching (past months immutable).
 
-### Development/Staging — boxofclue.com/comdev-metrics/
-
-Rich's local cron on matrim.rcbowen.com → rsync to boxofclue.com:
-```
-0 6 * * 1  rcbowen  cd /home/rbowen/devel/apache/comdev/comdev-metrics && /usr/bin/uv run asfmetrics --config config.yml && rsync -az --delete site/ fagin.rcbowen.com:/var/www/vhosts/boxofclue.com/comdev-metrics/
-```
-
 ### Future: projects.apache.org/metrics
 
 The plan is to serve the metrics at `https://projects.apache.org/metrics`
-by fetching the GitHub Pages artifact to the ComDev VM, or using an Alias/rewrite.
+by fetching the GitHub Pages output to the ComDev VM, or using an Alias/rewrite.
 The ComDev VM already hosts projects.apache.org and reporter.apache.org.
 Longer term: tighter integration between the metrics dashboard and projects.apache.org
 (cross-linking, embedded sparklines, trend badges on project pages).
