@@ -161,6 +161,63 @@
     </div>
 
     <div class="section">
+        <h2>JSON Data API</h2>
+        <p>All data is published as static JSON files under
+        <a href="data/"><code>data/</code></a> and can be consumed directly
+        for your own analysis. No API key required.</p>
+
+        <h3>Per-project files</h3>
+        <table>
+            <thead><tr><th>URL pattern</th><th>Contents</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><code>data/{project}.json</code></td>
+                    <td>Mailing list stats — active lists, message counts, monthly breakdown</td>
+                </tr>
+                <tr>
+                    <td><code>data/{project}_git.json</code></td>
+                    <td>Git activity — commits, committers, PRs per repo, monthly breakdown</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>For example:
+            <a href="data/accumulo.json"><code>data/accumulo.json</code></a>,
+            <a href="data/accumulo_git.json"><code>data/accumulo_git.json</code></a>
+        </p>
+
+        <h3>Foundation-wide files</h3>
+        <table>
+            <thead><tr><th>URL</th><th>Contents</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><a href="data/_foundation.json"><code>data/_foundation.json</code></a></td>
+                    <td>Roster changes — new committers and PMC members with dates and project affiliation</td>
+                </tr>
+                <tr>
+                    <td><a href="data/_cache/mailing_summary.json"><code>data/_cache/mailing_summary.json</code></a></td>
+                    <td>All projects' mailing list totals in one file (used by the overview page)</td>
+                </tr>
+                <tr>
+                    <td><a href="data/_cache/committees.json"><code>data/_cache/committees.json</code></a></td>
+                    <td>Committee metadata — roster, chair, established date, reporting cycle</td>
+                </tr>
+                <tr>
+                    <td><a href="data/_cache/releases.json"><code>data/_cache/releases.json</code></a></td>
+                    <td>Release history for all projects</td>
+                </tr>
+                <tr>
+                    <td><a href="data/_cache/project_health.json"><code>data/_cache/project_health.json</code></a></td>
+                    <td>Activity trend classifications — declining, at-risk, and dormant projects with trend data</td>
+                </tr>
+                <tr>
+                    <td><a href="data/_project_map.json"><code>data/_project_map.json</code></a></td>
+                    <td>GitHub repo → project mapping (3000+ repos classified into projects)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
         <h2>Source Code</h2>
         <p>The collector and dashboard are open source:</p>
         <ul>
