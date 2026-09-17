@@ -381,7 +381,7 @@
 
             // --- Activity trend badge ---
             try {
-                const trendResp = await fetch('data/_cache/project_health.json');
+                const trendResp = await fetch('data/_cache/activity_trends.json');
                 if (trendResp.ok) {
                     const trendData = await trendResp.json();
                     const badge = document.getElementById('trend-badge');
