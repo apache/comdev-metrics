@@ -167,7 +167,10 @@ def _fetch_current_month_stats(
     return collect_list_stats(list_name, domain, base_url, timespan="2M", quick=True)
 
 
-def collect_mailing_list_stats(project: str, config: dict) -> dict | None:
+def collect_mailing_list_stats(
+    project: str, config: dict,
+    mail_domain_map: dict[str, str] | None = None,
+) -> dict | None:
     """Collect mailing list statistics for a single project, with caching.
 
     Caching behavior:
@@ -181,6 +184,8 @@ def collect_mailing_list_stats(project: str, config: dict) -> dict | None:
     Args:
         project: ASF project name (e.g. 'kafka', 'comdev').
         config: Full config dict.
+        mail_domain_map: Optional mapping of project id → mailing list
+            domain (e.g. ``{'comdev': 'community.apache.org'}``).
 
     Returns:
         Dict with per-list stats, or None if no active lists found.
@@ -196,13 +201,12 @@ def collect_mailing_list_stats(project: str, config: dict) -> dict | None:
         .get("activity_threshold", ACTIVITY_THRESHOLD)
     )
 
-    # ComDev's domain is community.apache.org, not comdev.apache.org
-    domain_overrides = {
-        "comdev": "community.apache.org",
-        "infrastructure": "infra.apache.org",
-        "whimsy": "whimsical.apache.org",
-    }
-    domain = domain_overrides.get(project, f"{project}.apache.org")
+    # Derive mailing list domain from Whimsy committee-info.json data.
+    # Falls back to the standard {project}.apache.org pattern.
+    if mail_domain_map:
+        domain = mail_domain_map.get(project, f"{project}.apache.org")
+    else:
+        domain = f"{project}.apache.org"
 
     # Check cache
     cache = _load_cache(project, config)

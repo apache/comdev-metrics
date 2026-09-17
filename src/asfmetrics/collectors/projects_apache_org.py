@@ -95,6 +95,40 @@ def fetch_all_foundation_data(config: dict) -> dict:
     return data
 
 
+def build_mail_domain_map(config: dict) -> dict[str, str]:
+    """Build a committee-id → mailing list domain map from Whimsy.
+
+    Fetches committee-info.json and extracts the 'mail_list' field,
+    which gives the correct mailing list domain prefix for each
+    committee.  For most projects the domain is simply
+    ``{project}.apache.org``, but some differ (e.g. comdev →
+    community.apache.org, infrastructure → infra.apache.org).
+
+    Returns:
+        Dict mapping committee id to full domain, e.g.
+        ``{'comdev': 'community.apache.org', ...}``.
+        Only entries where the domain differs from the default
+        ``{id}.apache.org`` pattern are included.
+    """
+    print("    fetching Whimsy committee-info.json for mail domains...")
+    try:
+        resp = httpx.get(WHIMSY_COMMITTEE_INFO, timeout=60, follow_redirects=True)
+        resp.raise_for_status()
+        data = resp.json()
+    except (httpx.HTTPError, ValueError) as e:
+        print(f"    warning: failed to fetch committee-info.json: {e}")
+        return {}
+
+    domain_map = {}
+    for cid, info in data.get("committees", {}).items():
+        mail_list = info.get("mail_list", "")
+        if mail_list and mail_list != cid:
+            domain_map[cid] = f"{mail_list}.apache.org"
+
+    print(f"    mail domain overrides from Whimsy: {len(domain_map)} entries")
+    return domain_map
+
+
 def extract_active_projects(data: dict) -> list[str]:
     """Get sorted list of active project names — TLPs + current podlings.
 
@@ -291,6 +325,9 @@ def collect_projects_apache_org(config: dict) -> dict:
     active_projects = extract_active_projects(data)
     roster_changes = detect_roster_changes(data, state_dir)
 
+    # Build mail domain map from Whimsy committee-info.json
+    mail_domain_map = build_mail_domain_map(config)
+
     # Detect new committers from Whimsy LDAP
     new_committers = collect_new_committers(data, config)
 
@@ -310,5 +347,6 @@ def collect_projects_apache_org(config: dict) -> dict:
         "active_projects": active_projects,
         "roster_changes": roster_changes,
         "new_committers": new_committers,
+        "mail_domain_map": mail_domain_map,
         "data": data,
     }

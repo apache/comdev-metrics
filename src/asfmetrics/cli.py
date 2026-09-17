@@ -104,6 +104,7 @@ def main():
     write_json("_foundation", pao_result["roster_changes"], config)
     status_done(f"foundation data: {len(pao_result['active_projects'])} active projects")
 
+    mail_domain_map = pao_result.get("mail_domain_map", {})
     # Determine project list
     projects = config.get("projects", ["all"])
     if args.project:
@@ -120,7 +121,7 @@ def main():
 
         for i, project in enumerate(projects, 1):
             status(f"[{i}/{total}] {project}: fetching mailing lists...")
-            stats = collect_mailing_list_stats(project, config)
+            stats = collect_mailing_list_stats(project, config, mail_domain_map)
             if stats:
                 active_count = len(stats["active_lists"])
                 total_msgs = sum(l["messages"] for l in stats["active_lists"])
