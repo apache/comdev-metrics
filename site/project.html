@@ -18,7 +18,8 @@
         a { color: #d45500; text-decoration: none; }
         a:hover { text-decoration: underline; }
         h1 { margin-bottom: 0.25rem; color: #1a1a2e; }
-        .breadcrumb { color: #666; margin-bottom: 1.5rem; font-size: 0.9rem; }
+        .breadcrumb { color: #666; margin-bottom: 1.5rem; font-size: 0.9rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+        .breadcrumb .ext-link { color: #999; }
         .stats-bar {
             display: flex; gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap;
         }
@@ -79,7 +80,7 @@
     </style>
 </head>
 <body>
-    <div class="breadcrumb"><a href="index.html">← All Projects</a></div>
+    <div class="breadcrumb"><a href="index.html">← All Projects</a><span class="ext-link" id="pao-link"></span></div>
     <h1 id="project-title">Loading...</h1>
     <div id="loading">Loading project data...</div>
     <div id="error"></div>
@@ -153,11 +154,6 @@
             <thead><tr><th>Release</th><th>Date</th></tr></thead>
             <tbody></tbody>
         </table>
-    </div>
-
-    <div class="section" id="project-links-section" style="display:none">
-        <h2>Project Info</h2>
-        <p id="project-links"></p>
     </div>
 
     <div class="section" id="growth-section" style="display:none">
@@ -274,12 +270,9 @@
                     document.getElementById('stat-roster').textContent = Object.keys(roster).length;
 
                     // Link to projects.apache.org for full project metadata
-                    const linksSection = document.getElementById('project-links-section');
-                    linksSection.style.display = 'block';
-                    document.getElementById('project-links').innerHTML =
+                    document.getElementById('pao-link').innerHTML =
                         `<a href="https://projects.apache.org/committee.html?${id}" target="_blank">` +
-                        `View full project details on projects.apache.org →</a>` +
-                        ` (roster, description, repositories, homepage)`;
+                        `View on projects.apache.org →</a>`;
                 }
             }
 
