@@ -32,6 +32,7 @@ Where does the authoritative data live?
 | --- | --- | --- | --- |
 | **PMC membership** | `committee-info.txt` (private SVN) | Via Whimsy JSON | Updated by Secretary |
 | **Committer list** | LDAP (`id.apache.org`) | Via Whimsy `public_ldap_projects.json` |  |
+| **Committer creation dates** | LDAP `createTimestamp` | Via Whimsy `public_ldap_people.json` | Used for new committer detection |
 | **Podling status** | `incubator/.../podlings.xml` | Via Whimsy `public_podling_status.json` | Maintained by VP Incubator |
 | **Project metadata** | DOAP files (maintained by each PMC) | Listed in `data/projects.xml` on SVN |  |
 | **Retired projects** | `committee-info.yaml` + Attic | Via Whimsy `committee-retired.json` |  |
@@ -47,7 +48,7 @@ Base URL: `https://whimsy.apache.org/public/`
 | `committee-retired.json` | Retired committees | Project lifecycle |
 | `public_ldap_projects.json` | PMC/podling owners + members | Committer additions |
 | `public_podling_status.json` | Podling incubation status | Project lifecycle |
-| `public_ldap_people.json` | Person names + disabled status | People data |
+| `public_ldap_people.json` | Person names, disabled status, **createTimestamp** | New committer dates (12-month detection) |
 | `icla-info.json` | ICLA signers with committer IDs |  |
 
 These are regenerated hourly by Whimsy cron jobs **only when underlying data changes**.
@@ -60,23 +61,42 @@ These are regenerated hourly by Whimsy cron jobs **only when underlying data cha
 
 Source: `https://svn.apache.org/repos/asf/comdev/projects.apache.org/trunk/`
 
+### Foundation JSON files we fetch
+
+| File | Contents | Used by |
+| --- | --- | --- |
+| `committees.json` | PMC roster, chairs, charters, established dates | Dashboard overview, per-project pages |
+| `committees-retired.json` | Retired committees | Retirement detection |
+| `people.json` | Committer → project membership mapping | New committer project affiliation |
+| `podlings.json` | Current podlings + status | Active project list |
+| `releases.json` | Release history per project | Dashboard + per-project pages |
+| `repositories.json` | Git/SVN repository listing | SVN auto-detection |
+| `projects.json` | Master project metadata (from DOAP files) | Reference |
+
 ## Our Strategy
 
 ### Phase 1 (MVP — DONE — use what's publicly available without auth)
 
-- **Mailing lists**: Pony Mail API (`lists.apache.org/api/`) — no auth needed- Aggressive caching: past months immutable, only current month refreshed
-- **Git metrics**: GitHub API (`api.github.com/orgs/apache`) — public, rate-limited (use token from `.secrets`)- Also supports SVN via `svn log --xml` for projects configured with `vcs: svn` or auto-detected from `repositories.json`
-- Per-project VCS override in `config.yml` → `project_overrides:`
-- Per-repo monthly breakdown with aggressive caching (same-day = skip, next-day = incremental)
-- Rate-limit tracking with automatic pause-and-wait at 50 remaining calls
-- **Project roster changes**: Whimsy public JSON (diff `committee-info.json` between runs)
+- **Mailing lists**: Pony Mail API (`lists.apache.org/api/`) — no auth needed
+  - Aggressive caching: past months immutable, only current month refreshed
+  - Summary file (`mailing_summary.json`) avoids 200+ individual fetches on dashboard load
+- **Git metrics**: GitHub API (`api.github.com/orgs/apache`) — public, rate-limited (use token from `.secrets`)
+  - Also supports SVN via `svn log --xml` for projects configured with `vcs: svn` or auto-detected from `repositories.json`
+  - Per-project VCS override in `config.yml` → `project_overrides:`
+  - Per-repo monthly breakdown with aggressive caching (same-day = skip, next-day = incremental)
+  - Rate-limit tracking with automatic pause-and-wait at 50 remaining calls
+- **New committers**: Whimsy `public_ldap_people.json` `createTimestamp`, cross-referenced with `people.json` group membership
+  - 12-month window, grouped by project, output to `new_committers.json`
+- **Project roster changes**: Whimsy/projects.apache.org JSON (diff `committee-info.json` between runs)
 - **Project list**: projects.apache.org `committees.json` + `podlings.json` (TLPs + active podlings)
 - **Repo inventory**: GitHub org listing → `_project_map.json` (auto-run on first use)
-- **Dashboard**: 12-month rolling window with linear regression trend lines- Current month extrapolated to full-month estimate for trend accuracy
+- **Dashboard**: 12-month rolling window with linear regression trend lines
+  - Current month extrapolated to full-month estimate for trend accuracy
+- **Health classification**: Deterministic QoQ trend analysis (Sharp Decline / Declining / Dormant)
+  - Fixed thresholds, only human discussion lists, current partial month excluded
 
 ### Phase 2 (richer data, may need ASF Infra coordination)
 
-- **Release history**: projects.apache.org JSON cache or direct DOAP parsing
 - **Podling lifecycle**: Whimsy `public_podling_status.json`
 - **Retired projects**: Whimsy `committee-retired.json`
 - **Board report status**: Would need access to board minutes (private SVN)
@@ -102,6 +122,7 @@ For community activity metrics, **Whimsy public JSON + Pony Mail + GitHub API** 
 # Whimsy public data
 https://whimsy.apache.org/public/committee-info.json
 https://whimsy.apache.org/public/public_ldap_projects.json
+https://whimsy.apache.org/public/public_ldap_people.json
 https://whimsy.apache.org/public/public_podling_status.json
 https://whimsy.apache.org/public/committee-retired.json
 
@@ -113,8 +134,11 @@ https://lists.apache.org/api/stats.json         (per-list stats, POST + JSON bod
 https://api.github.com/orgs/apache/repos        (repo listing)
 
 # projects.apache.org data (secondary)
-https://projects.apache.org/json/projects.json  (all projects metadata)
-https://projects.apache.org/json/releases.json  (release data)
-
+https://projects.apache.org/json/foundation/committees.json
+https://projects.apache.org/json/foundation/people.json
+https://projects.apache.org/json/foundation/podlings.json
+https://projects.apache.org/json/foundation/releases.json
+https://projects.apache.org/json/foundation/repositories.json
+https://projects.apache.org/json/foundation/projects.json
+https://projects.apache.org/json/foundation/committees-retired.json
 ```
-
