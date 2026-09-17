@@ -39,7 +39,7 @@ activity of every Apache project with 12-month rolling trends.
 - Releases published
 - Source: projects.apache.org JSON, Whimsy public JSON (`public_ldap_people.json`)
 
-### 4. Project Health Classification
+### 4. Activity Trend Classification
 - Deterministic quarter-over-quarter trend analysis
 - Categories: Sharp Decline, Declining (At Risk), Dormant
 - Only human discussion lists counted (dev, user, users, general, discuss)
@@ -62,7 +62,7 @@ activity of every Apache project with 12-month rolling trends.
 | 5 | Static HTML dashboard + per-project pages (default: All Projects tab) | ✅ Done |
 | 6 | Roster change detection (projects.apache.org JSON diffing) | ✅ Done |
 | 7 | New committer detection (Whimsy LDAP createTimestamp) | ✅ Done |
-| 8 | Project health classification (deterministic QoQ trend analysis) | ✅ Done |
+| 8 | Activity trend classification (deterministic QoQ trend analysis) | ✅ Done |
 | 9 | About page (data source documentation for end users) | ✅ Done |
 | 10 | Deploy to ComDev VM for demo | ✅ Done |
 | 11 | Next Committer integration (PMC-only, LDAP gated) | ⬜ |
@@ -92,7 +92,7 @@ Phase 3: Git/VCS activity (per-project)
   └─ GitHub API (commits + PRs) or SVN log
   └─ Per-repo monthly time-series
 
-Phase 4: Health classification
+Phase 4: Activity trend classification
   └─ QoQ trend analysis → project_health.json
 ```
 
@@ -111,7 +111,7 @@ Phase 4: Health classification
 - Extrapolation: `projected = actual × (days_in_month / day_of_month)`
 - Rendered as dashed SVG overlay on per-project bar charts
 
-### Health Classification (health.py)
+### Activity Trend Classification (health.py)
 
 Quarter-over-quarter comparison using fixed thresholds:
 
@@ -145,7 +145,7 @@ Current partial month excluded. Projects must have data files to be assessed.
 
 Sebb set up a GitHub Actions workflow that:
 1. Runs the full collection pipeline (foundation data → mailing lists → git → health)
-2. Uploads the output `site/` directory as a runtime artifact (caches between runs)
+2. Uploads the output `site/` directory as a runtime artifact (cached between runs)
 3. Deploys to GitHub Pages at https://apache.github.io/comdev-metrics/
 
 The build does not update any files in the repository itself — only the
@@ -170,7 +170,7 @@ The plan is to serve the metrics at `https://projects.apache.org/metrics`
 by fetching the GitHub Pages artifact to the ComDev VM, or using an Alias/rewrite.
 The ComDev VM already hosts projects.apache.org and reporter.apache.org.
 Longer term: tighter integration between the metrics dashboard and projects.apache.org
-(cross-linking, embedded sparklines, health badges on project pages).
+(cross-linking, embedded sparklines, trend badges on project pages).
 
 ## Open Questions
 
