@@ -111,7 +111,7 @@ Phase 4: Activity trend classification
 - Extrapolation: `projected = actual × (days_in_month / day_of_month)`
 - Rendered as dashed SVG overlay on per-project bar charts
 
-### Activity Trend Classification (health.py)
+### Activity Trend Classification (trends.py)
 
 Quarter-over-quarter comparison using fixed thresholds:
 

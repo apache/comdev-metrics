@@ -122,7 +122,7 @@ comdev-metrics/
 │   ├── __init__.py         # Package version
 │   ├── cli.py              # Entry point — orchestrates all phases
 │   ├── config.py           # Config loading (YAML, multi-path lookup)
-│   ├── health.py           # Deterministic activity trend classification
+│   ├── trends.py           # Deterministic activity trend classification
 │   ├── collectors/
 │   │   ├── mailing_lists.py         # Pony Mail Foal API + caching
 │   │   ├── git_activity.py          # GitHub API + SVN log collector + caching
