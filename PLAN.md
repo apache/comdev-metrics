@@ -44,7 +44,7 @@ activity of every Apache project with 12-month rolling trends.
 - Categories: Sharp Decline, Declining (At Risk), Dormant
 - Only human discussion lists counted (dev, user, users, general, discuss)
 - Fixed thresholds, no ML/heuristics
-- Output: `_cache/project_health.json`
+- Output: `_cache/activity_trends.json`
 
 ### 5. Project Lifecycle
 - New projects (graduated from Incubator)
@@ -93,7 +93,7 @@ Phase 3: Git/VCS activity (per-project)
   └─ Per-repo monthly time-series
 
 Phase 4: Activity trend classification
-  └─ QoQ trend analysis → project_health.json
+  └─ QoQ trend analysis → activity_trends.json
 ```
 
 ### Caching Strategy

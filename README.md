@@ -143,7 +143,7 @@ comdev-metrics/
 │       │   ├── releases.json
 │       │   ├── new_committers.json
 │       │   ├── mailing_summary.json
-│       │   └── project_health.json
+│       │   └── activity_trends.json
 │       ├── _state/             # Roster diff state between runs
 │       ├── _project_map.json   # GitHub repo → project classification
 │       ├── <project>.json      # Mailing list data
@@ -177,7 +177,7 @@ The CLI runs these phases in order:
 2. **Foundation data** — projects.apache.org JSON + Whimsy LDAP new committer dates + roster diffing
 3. **Mailing lists** — per-project Pony Mail stats (skipped with `--skip-mailing-lists`) + summary file
 4. **Git/VCS activity** — per-project GitHub API or SVN log (skipped with `--skip-git`)
-5. **Activity trend classification** — deterministic QoQ trend analysis → `project_health.json`
+5. **Activity trend classification** — deterministic QoQ trend analysis → `activity_trends.json`
 
 ## Dashboard Pages
 
