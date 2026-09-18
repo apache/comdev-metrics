@@ -56,9 +56,6 @@ jobs:
             echo "No previous entry found"
           fi
 
-          # TEMP: drop obsolete file
-          rm -f site/data/_cache/project_health.json
-
           # Now build the site:
           cp config.example.yml config.yml
           uv run asfmetrics --skip-git --skip-mailing-lists
