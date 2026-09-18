@@ -144,14 +144,6 @@ def _first_of_month(month_str: str) -> datetime:
 
 
 
-    Returns True only if fetched today (same date). For a weekly cron,
-    this means each run will refresh the current month's data, but
-    running multiple times in one day won't hit the API repeatedly.
-    """
-    fetched_at = cache.get("_fetched_at", "")
-    today = datetime.now().strftime("%Y-%m-%d")
-    return fetched_at == today
-
 
 def invalidate_git_cache(config: dict) -> None:
     """Remove all git activity cache files."""
