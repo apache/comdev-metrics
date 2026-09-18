@@ -20,7 +20,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from asfmetrics.config import get_cache_dir
+from asfmetrics.collectors import cache
 
 import httpx
 
@@ -31,63 +31,17 @@ PONYMAIL_API = "https://lists.apache.org/api/"
 ACTIVITY_THRESHOLD = "12M"  # Full year — trends need context beyond a single quarter
 
 
-def _current_month_str() -> str:
-    """Return current month as YYYY-MM."""
-    now = datetime.now()
-    return f"{now.year}-{now.month:02d}"
+_COLLECTOR_NAME = "mailing_lists"
 
-
-def _cache_dir(config: dict) -> Path:
-    """Return the mailing list cache directory."""
-    cache_dir = get_cache_dir(config) / "mailing_lists"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
 
 
 def invalidate_cache(config: dict) -> None:
-    """Remove all mailing list cache files.
-
-    Used by --force-refresh to force a full re-fetch.
-    """
-    cache_dir = _cache_dir(config)
-    if cache_dir.exists():
-        for f in cache_dir.glob("*.json"):
-            f.unlink()
-        print(f"    cleared {cache_dir}")
+    """Remove all mailing list cache files."""
+    cache.invalidate(config, _COLLECTOR_NAME)
 
 
-def _load_cache(project: str, config: dict) -> dict | None:
-    """Load cached mailing list data for a project.
-
-    Returns:
-        Cache dict with per-list monthly data, or None if no cache.
-    """
-    cache_path = _cache_dir(config) / f"{project}.json"
-    if not cache_path.exists():
-        return None
-    try:
-        with open(cache_path) as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return None
 
 
-def _save_cache(project: str, cache_data: dict, config: dict) -> None:
-    """Save mailing list cache for a project."""
-    cache_path = _cache_dir(config) / f"{project}.json"
-    with open(cache_path, "w") as f:
-        json.dump(cache_data, f, indent=2)
-
-
-def _cache_is_current(cache: dict) -> bool:
-    """Check if cache was fetched today (same date).
-
-    Same-day re-runs skip (saves API calls during testing).
-    Next-day or later runs always refresh current month data.
-    """
-    fetched_at = cache.get("_fetched_at", "")
-    today = datetime.now().strftime("%Y-%m-%d")
-    return fetched_at == today
 
 
 def discover_lists(base_url: str = PONYMAIL_API) -> dict:
@@ -210,10 +164,10 @@ def collect_mailing_list_stats(
         domain = f"{project}.apache.org"
 
     # Check cache
-    cache = _load_cache(project, config)
-    current_month = _current_month_str()
+    cache = cache.load_cache(project, config, _COLLECTOR_NAME)
+    current_month = cache.current_month_str()
 
-    if cache and _cache_is_current(cache):
+    if cache and cache.cache_is_current(cache):
         # Cache is fresh — return directly without any API calls
         return _build_result_from_cache(project, domain, timespan, cache)
 
@@ -237,7 +191,7 @@ def collect_mailing_list_stats(
                 # Update totals from the full month range
                 list_data["messages"] = sum(
                     v for k, v in cached_months.items()
-                    if k >= _twelve_months_ago_str()
+                    if k >= cache.twelve_months_ago_str()
                 )
                 list_data["participants"] = stats.get("numparts", list_data.get("participants", 0))
                 list_data["threads"] = stats.get("no_threads", list_data.get("threads", 0))
@@ -245,7 +199,7 @@ def collect_mailing_list_stats(
 
         if updated:
             cache["_fetched_at"] = datetime.now().strftime("%Y-%m-%d")
-            _save_cache(project, cache, config)
+            cache.save_cache(project, cache, config, _COLLECTOR_NAME)
 
         return _build_result_from_cache(project, domain, timespan, cache)
 
@@ -288,7 +242,7 @@ def collect_mailing_list_stats(
         "_domain": domain,
         "lists": cache_lists,
     }
-    _save_cache(project, cache_data, config)
+    cache.save_cache(project, cache_data, config, _COLLECTOR_NAME)
 
     return {
         "project": project,
@@ -297,13 +251,6 @@ def collect_mailing_list_stats(
         "active_lists": active_lists,
     }
 
-
-def _twelve_months_ago_str() -> str:
-    """Return YYYY-MM string for 12 months ago."""
-    now = datetime.now()
-    year = now.year - 1
-    month = now.month
-    return f"{year}-{month:02d}"
 
 
 def _build_result_from_cache(
@@ -316,7 +263,7 @@ def _build_result_from_cache(
 
     Filters to the 12-month window for the output.
     """
-    cutoff = _twelve_months_ago_str()
+    cutoff = cache.twelve_months_ago_str()
     active_lists = []
 
     for list_id, list_data in cache.get("lists", {}).items():

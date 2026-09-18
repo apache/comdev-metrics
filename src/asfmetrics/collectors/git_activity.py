@@ -38,12 +38,14 @@ from pathlib import Path
 
 import httpx
 
-from asfmetrics.collectors.github_repos import resolve_github_token
+from asfmetrics.collectors.github_repos import resolve_github_token, GITHUB_API
+from asfmetrics.collectors import cache
 from asfmetrics.config import get_cache_dir, get_json_dir, PROJECT_MAP_FILE
 
 
-GITHUB_API = "https://api.github.com"
 ASF_SVN_BASE = "https://svn.apache.org/repos/asf"
+
+_COLLECTOR_NAME = "git"
 
 # ---------------------------------------------------------------------------
 # GitHub API rate-limit tracking
@@ -121,22 +123,8 @@ SVN_PATH_CONVENTIONS = {
 }
 
 
-def _current_month_str() -> str:
-    """Return current month as YYYY-MM."""
-    now = datetime.now()
-    return f"{now.year}-{now.month:02d}"
 
 
-def _twelve_months_ago() -> datetime:
-    """Return datetime 12 months before now."""
-    now = datetime.now()
-    return now.replace(year=now.year - 1)
-
-
-def _twelve_months_ago_str() -> str:
-    """Return YYYY-MM for 12 months ago."""
-    dt = _twelve_months_ago()
-    return f"{dt.year}-{dt.month:02d}"
 
 
 def _month_key(dt: datetime) -> str:
@@ -153,34 +141,8 @@ def _first_of_month(month_str: str) -> datetime:
 # Cache management
 # ---------------------------------------------------------------------------
 
-def _cache_dir(config: dict) -> Path:
-    """Return the git activity cache directory."""
-    cache_dir = get_cache_dir(config) / "git"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
 
 
-def _load_cache(project: str, config: dict) -> dict | None:
-    """Load cached git activity data for a project."""
-    cache_path = _cache_dir(config) / f"{project}.json"
-    if not cache_path.exists():
-        return None
-    try:
-        with open(cache_path) as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return None
-
-
-def _save_cache(project: str, cache_data: dict, config: dict) -> None:
-    """Save git activity cache for a project."""
-    cache_path = _cache_dir(config) / f"{project}.json"
-    with open(cache_path, "w") as f:
-        json.dump(cache_data, f, indent=2)
-
-
-def _cache_is_current(cache: dict) -> bool:
-    """Check if cache was fetched recently enough to skip.
 
     Returns True only if fetched today (same date). For a weekly cron,
     this means each run will refresh the current month's data, but
@@ -192,12 +154,9 @@ def _cache_is_current(cache: dict) -> bool:
 
 
 def invalidate_git_cache(config: dict) -> None:
-    """Remove all git activity cache files (for --force-refresh)."""
-    cache_dir = _cache_dir(config)
-    if cache_dir.exists():
-        for f in cache_dir.glob("*.json"):
-            f.unlink()
-        print(f"    cleared {cache_dir}")
+    """Remove all git activity cache files."""
+    cache.invalidate(config, _COLLECTOR_NAME)
+
 
 
 # ---------------------------------------------------------------------------
@@ -424,17 +383,17 @@ def collect_github_activity(
     Output format: list of repos each with their own monthly time-series
     (mirrors mailing list structure for the frontend).
     """
-    current_month = _current_month_str()
-    cache = _load_cache(project, config)
+    current_month = cache.current_month_str()
+    cache = cache.load_cache(project, config, _COLLECTOR_NAME)
 
-    if cache and _cache_is_current(cache) and "repos_data" in cache:
+    if cache and cache.cache_is_current(cache) and "repos_data" in cache:
         return _build_result_from_cache(project, "github", cache, org=org, repos=repos)
 
     if cache and cache.get("repos_data"):
         # Stale cache — re-fetch from the date of last fetch (inclusive)
         # Overlap is fine: monthly data gets overwritten, not appended
         fetched_at = cache.get("_fetched_at", "")
-        since = datetime.strptime(fetched_at, "%Y-%m-%d") if fetched_at else _twelve_months_ago()
+        since = datetime.strptime(fetched_at, "%Y-%m-%d") if fetched_at else cache.twelve_months_ago()
         fresh = _aggregate_github_monthly(repos, org, since, token, project=project, progress=progress)
 
         cached_repos = cache.get("repos_data", {})
@@ -446,11 +405,11 @@ def collect_github_activity(
 
         cache["repos_data"] = cached_repos
         cache["_fetched_at"] = datetime.now().strftime("%Y-%m-%d")
-        _save_cache(project, cache, config)
+        cache.save_cache(project, cache, config, _COLLECTOR_NAME)
         return _build_result_from_cache(project, "github", cache, org=org, repos=repos)
 
     # No cache — full 12-month fetch
-    since = _twelve_months_ago()
+    since = cache.twelve_months_ago()
     repos_data = _aggregate_github_monthly(repos, org, since, token, project=project, progress=progress)
 
     cache_data = {
@@ -461,7 +420,7 @@ def collect_github_activity(
         "_repos": repos,
         "repos_data": repos_data,
     }
-    _save_cache(project, cache_data, config)
+    cache.save_cache(project, cache_data, config, _COLLECTOR_NAME)
     return _build_result_from_cache(project, "github", cache_data, org=org, repos=repos)
 
 
@@ -549,15 +508,15 @@ def collect_svn_activity(
     progress: str = "",
 ) -> dict:
     """Collect commit activity from SVN, with caching. Same per-repo structure."""
-    current_month = _current_month_str()
-    cache = _load_cache(project, config)
+    current_month = cache.current_month_str()
+    cache = cache.load_cache(project, config, _COLLECTOR_NAME)
 
-    if cache and _cache_is_current(cache) and "repos_data" in cache:
+    if cache and cache.cache_is_current(cache) and "repos_data" in cache:
         return _build_result_from_cache(project, "svn", cache, svn_url=svn_url)
 
     if cache and cache.get("repos_data"):
         fetched_at = cache.get("_fetched_at", "")
-        since = datetime.strptime(fetched_at, "%Y-%m-%d") if fetched_at else _twelve_months_ago()
+        since = datetime.strptime(fetched_at, "%Y-%m-%d") if fetched_at else cache.twelve_months_ago()
         fresh = _aggregate_svn_monthly(svn_url, since, project)
 
         cached_repos = cache.get("repos_data", {})
@@ -569,11 +528,11 @@ def collect_svn_activity(
 
         cache["repos_data"] = cached_repos
         cache["_fetched_at"] = datetime.now().strftime("%Y-%m-%d")
-        _save_cache(project, cache, config)
+        cache.save_cache(project, cache, config, _COLLECTOR_NAME)
         return _build_result_from_cache(project, "svn", cache, svn_url=svn_url)
 
     # No cache — full fetch
-    since = _twelve_months_ago()
+    since = cache.twelve_months_ago()
     repos_data = _aggregate_svn_monthly(svn_url, since, project)
 
     cache_data = {
@@ -583,7 +542,7 @@ def collect_svn_activity(
         "_svn_url": svn_url,
         "repos_data": repos_data,
     }
-    _save_cache(project, cache_data, config)
+    cache.save_cache(project, cache_data, config, _COLLECTOR_NAME)
     return _build_result_from_cache(project, "svn", cache_data, svn_url=svn_url)
 
 
@@ -610,7 +569,7 @@ def _build_result_from_cache(
         totals: {commits, committers, prs_opened, prs_merged}
     }
     """
-    cutoff = _twelve_months_ago_str()
+    cutoff = cache.twelve_months_ago_str()
     repos_data = cache.get("repos_data", {})
 
     active_repos = []
