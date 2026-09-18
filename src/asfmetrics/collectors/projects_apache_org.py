@@ -16,6 +16,8 @@ from pathlib import Path
 
 import httpx
 
+from asfmetrics.config import get_cache_dir, get_state_dir, NEW_COMMITTERS_FILE
+
 
 BASE_URL = "https://projects.apache.org/json/foundation/"
 
@@ -74,10 +76,7 @@ def fetch_all_foundation_data(config: dict) -> dict:
         .get("projects_apache_org", {})
         .get("base_url", BASE_URL)
     )
-    cache_dir = Path(
-        config.get("output", {}).get("json_dir", "./site/data/")
-    ) / "_cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir = get_cache_dir(config)
 
     data = {}
     for filename, description in FOUNDATION_FILES.items():
@@ -318,9 +317,7 @@ def collect_projects_apache_org(config: dict) -> dict:
     print("  collecting from projects.apache.org...")
     data = fetch_all_foundation_data(config)
 
-    json_dir = Path(config.get("output", {}).get("json_dir", "./site/data/"))
-    state_dir = json_dir / "_state"
-    state_dir.mkdir(parents=True, exist_ok=True)
+    state_dir = get_state_dir(config)
 
     active_projects = extract_active_projects(data)
     roster_changes = detect_roster_changes(data, state_dir)
@@ -332,9 +329,8 @@ def collect_projects_apache_org(config: dict) -> dict:
     new_committers = collect_new_committers(data, config)
 
     # Save new committers data for the frontend
-    cache_dir = json_dir / "_cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    with open(cache_dir / "new_committers.json", "w") as f:
+    cache_dir = get_cache_dir(config)
+    with open(cache_dir / NEW_COMMITTERS_FILE, "w") as f:
         json.dump(new_committers, f, indent=2)
 
     print(f"    {len(active_projects)} active projects")

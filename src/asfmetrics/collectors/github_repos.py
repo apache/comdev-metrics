@@ -20,6 +20,8 @@ from pathlib import Path
 
 import httpx
 
+from asfmetrics.config import get_json_dir, PROJECT_MAP_FILE
+
 
 GITHUB_API = "https://api.github.com"
 ORG = "apache"
@@ -294,10 +296,9 @@ def collect_repo_inventory(config: dict) -> dict:
         Dict with project_map, changes, and repo_count.
     """
     token = resolve_github_token(config)
-    json_dir = Path(config.get("output", {}).get("json_dir", "./site/data/"))
-    json_dir.mkdir(parents=True, exist_ok=True)
+    json_dir = get_json_dir(config)
 
-    state_path = json_dir / "_project_map.json"
+    state_path = json_dir / PROJECT_MAP_FILE
 
     print("    fetching Apache GitHub org repos...")
     repos = fetch_all_repos(token)

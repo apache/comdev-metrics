@@ -11,6 +11,16 @@ from pathlib import Path
 import yaml
 
 
+# --- Shared path constants ---
+DEFAULT_JSON_DIR = "./site/data/"
+CACHE_SUBDIR = "_cache"
+STATE_SUBDIR = "_state"
+PROJECT_MAP_FILE = "_project_map.json"
+MAILING_SUMMARY_FILE = "mailing_summary.json"
+NEW_COMMITTERS_FILE = "new_committers.json"
+FOUNDATION_FILE = "_foundation"
+
+
 CONFIG_SEARCH_PATHS = [
     Path("./config.yml"),
     Path.home() / ".asfmetrics" / "config.yml",
@@ -48,3 +58,28 @@ def load_config(path: Path | None = None) -> dict:
         )
     with open(path) as f:
         return yaml.safe_load(f)
+
+
+def get_json_dir(config: dict) -> Path:
+    """Resolve the JSON output directory from config.
+
+    Returns:
+        Path to the output directory (created if necessary).
+    """
+    d = Path(config.get("output", {}).get("json_dir", DEFAULT_JSON_DIR))
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def get_cache_dir(config: dict) -> Path:
+    """Resolve the cache subdirectory under the JSON output dir."""
+    d = get_json_dir(config) / CACHE_SUBDIR
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def get_state_dir(config: dict) -> Path:
+    """Resolve the state subdirectory under the JSON output dir."""
+    d = get_json_dir(config) / STATE_SUBDIR
+    d.mkdir(parents=True, exist_ok=True)
+    return d

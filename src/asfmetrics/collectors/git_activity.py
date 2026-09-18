@@ -39,6 +39,7 @@ from pathlib import Path
 import httpx
 
 from asfmetrics.collectors.github_repos import resolve_github_token
+from asfmetrics.config import get_cache_dir, get_json_dir, PROJECT_MAP_FILE
 
 
 GITHUB_API = "https://api.github.com"
@@ -154,8 +155,7 @@ def _first_of_month(month_str: str) -> datetime:
 
 def _cache_dir(config: dict) -> Path:
     """Return the git activity cache directory."""
-    json_dir = Path(config.get("output", {}).get("json_dir", "./site/data/"))
-    cache_dir = json_dir / "_cache" / "git"
+    cache_dir = get_cache_dir(config) / "git"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
 
@@ -717,8 +717,7 @@ def collect_git_activity(project: str, config: dict, progress: str = "") -> dict
 
     # Auto-detect SVN-only projects from repositories.json
     if vcs == "github" and not overrides.get("vcs"):
-        json_dir = Path(config.get("output", {}).get("json_dir", "./site/data/"))
-        repos_cache = json_dir / "_cache" / "repositories.json"
+        repos_cache = get_cache_dir(config) / "repositories.json"
         if repos_cache.exists():
             with open(repos_cache) as f:
                 all_repos = json.load(f)
@@ -753,8 +752,7 @@ def collect_git_activity(project: str, config: dict, progress: str = "") -> dict
         repos = overrides.get("repos")
         if repos is None:
             # Try to load from the project map (built by github_repos.py)
-            json_dir = Path(config.get("output", {}).get("json_dir", "./site/data/"))
-            project_map_path = json_dir / "_project_map.json"
+            project_map_path = get_json_dir(config) / PROJECT_MAP_FILE
             if project_map_path.exists():
                 with open(project_map_path) as f:
                     project_map = json.load(f)

@@ -14,6 +14,8 @@ from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
+from asfmetrics.config import get_json_dir, get_cache_dir
+
 
 # --- Thresholds (deterministic) ---
 DECLINE_THRESHOLD = -30  # percent drop to count as "declining"
@@ -101,9 +103,8 @@ def compute_activity_trends(config: dict) -> dict:
     Returns:
         The trend data dict (also written to disk).
     """
-    json_dir = Path(config.get("output", {}).get("json_dir", "./site/data/"))
-    cache_dir = json_dir / "_cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    json_dir = get_json_dir(config)
+    cache_dir = get_cache_dir(config)
 
     quarters = _determine_quarters()
     recent_months = quarters["recent_months"]

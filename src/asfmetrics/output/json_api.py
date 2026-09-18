@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+from asfmetrics.config import get_json_dir
 
 def write_json(project: str, stats: dict, config: dict) -> Path:
     """Write project stats to a JSON file.
@@ -15,9 +16,7 @@ def write_json(project: str, stats: dict, config: dict) -> Path:
     Returns:
         Path to written JSON file.
     """
-    output_dir = Path(
-        config.get("output", {}).get("json_dir", "./site/data/")
-    )
+    output_dir = get_json_dir(config)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     out_path = output_dir / f"{project}.json"

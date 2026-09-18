@@ -20,6 +20,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from asfmetrics.config import get_cache_dir
+
 import httpx
 
 
@@ -37,8 +39,7 @@ def _current_month_str() -> str:
 
 def _cache_dir(config: dict) -> Path:
     """Return the mailing list cache directory."""
-    json_dir = Path(config.get("output", {}).get("json_dir", "./site/data/"))
-    cache_dir = json_dir / "_cache" / "mailing_lists"
+    cache_dir = get_cache_dir(config) / "mailing_lists"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
 

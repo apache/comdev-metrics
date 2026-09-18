@@ -5,7 +5,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from asfmetrics.config import load_config
+from asfmetrics.config import (
+    load_config, get_json_dir, get_cache_dir, PROJECT_MAP_FILE, MAILING_SUMMARY_FILE,
+)
 from asfmetrics.collectors.mailing_lists import (
     collect_mailing_list_stats,
     discover_all_active_projects,
@@ -84,8 +86,8 @@ def main():
 
     # Repo inventory: auto-run if _project_map.json is missing,
     # or if --refresh-repos / --force-refresh is specified.
-    json_dir = Path(config.get("output", {}).get("json_dir", "./site/data/"))
-    project_map_path = json_dir / "_project_map.json"
+    json_dir = get_json_dir(config)
+    project_map_path = json_dir / PROJECT_MAP_FILE
     need_inventory = (
         args.refresh_repos
         or args.force_refresh
@@ -135,7 +137,6 @@ def main():
         status_done(f"mailing lists: {collected} projects collected, {skipped} skipped (no activity)")
 
         # Write mailing_summary.json for the overview page (avoids 200+ fetches)
-        json_dir = Path(config.get("output", {}).get("json_dir", "./site/data/"))
         summary = []
         for project_name in projects:
             project_file = json_dir / f"{project_name}.json"
@@ -152,11 +153,10 @@ def main():
                         })
                 except (json.JSONDecodeError, OSError):
                     pass
-        summary_path = json_dir / "_cache" / "mailing_summary.json"
-        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path = get_cache_dir(config) / MAILING_SUMMARY_FILE
         with open(summary_path, "w") as f:
             json.dump(summary, f)
-        status_done(f"mailing summary: {len(summary)} lists written to _cache/mailing_summary.json")
+        status_done(f"mailing summary: {len(summary)} lists written to {MAILING_SUMMARY_FILE}")
     else:
         print("  skipping mailing list collection (--skip-mailing-lists)")
 
