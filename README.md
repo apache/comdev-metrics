@@ -235,6 +235,9 @@ authentication automatically (ASF has GitHub Enterprise rate limits).
 
 Currently triggered manually (`workflow_dispatch`); scheduled runs TBD.
 
+There is another workflow (`.github/workflows/updatecode.yml`) which can be manually triggered
+to regenerate the site without downloading any Git or mail data.
+
 ### Local development
 
 For local testing:
