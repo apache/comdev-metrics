@@ -36,9 +36,9 @@ def test_classify_hyphenated_project():
 
 def test_build_project_map_groups_repos():
     repos = [
-        {"name": "kafka", "fork": False, "archived": False},
-        {"name": "kafka-site", "fork": False, "archived": False},
-        {"name": "kafka-python", "fork": False, "archived": False},
+        {"name": "kafka", "fork": False, "archived": False, "default_branch": "main"},
+        {"name": "kafka-site", "fork": False, "archived": False, "default_branch": "main"},
+        {"name": "kafka-python", "fork": False, "archived": False, "default_branch": "main"},
     ]
     result = build_project_map(repos)
     assert "kafka" in result
@@ -47,8 +47,8 @@ def test_build_project_map_groups_repos():
 
 def test_build_project_map_skips_forks():
     repos = [
-        {"name": "kafka", "fork": False, "archived": False},
-        {"name": "some-fork", "fork": True, "archived": False},
+        {"name": "kafka", "fork": False, "archived": False, "default_branch": "main"},
+        {"name": "some-fork", "fork": True, "archived": False, "default_branch": "main"},
     ]
     result = build_project_map(repos)
     assert "some" not in result
@@ -56,7 +56,7 @@ def test_build_project_map_skips_forks():
 
 def test_build_project_map_detects_incubating():
     repos = [
-        {"name": "incubator-xyz", "fork": False, "archived": False},
+        {"name": "incubator-xyz", "fork": False, "archived": False, "default_branch": "main"},
     ]
     result = build_project_map(repos)
     assert result["xyz"]["incubating"] is True
@@ -64,8 +64,8 @@ def test_build_project_map_detects_incubating():
 
 def test_build_project_map_detects_all_archived():
     repos = [
-        {"name": "oldproject", "fork": False, "archived": True},
-        {"name": "oldproject-docs", "fork": False, "archived": True},
+        {"name": "oldproject", "fork": False, "archived": True, "default_branch": "main"},
+        {"name": "oldproject-docs", "fork": False, "archived": True, "default_branch": "main"},
     ]
     result = build_project_map(repos)
     assert result["oldproject"]["archived"] is True
@@ -73,8 +73,8 @@ def test_build_project_map_detects_all_archived():
 
 def test_build_project_map_not_archived_if_any_active():
     repos = [
-        {"name": "myproj", "fork": False, "archived": False},
-        {"name": "myproj-old", "fork": False, "archived": True},
+        {"name": "myproj", "fork": False, "archived": False, "default_branch": "main"},
+        {"name": "myproj-old", "fork": False, "archived": True, "default_branch": "trunk"},
     ]
     result = build_project_map(repos)
     assert result["myproj"]["archived"] is False
