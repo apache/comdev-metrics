@@ -6,22 +6,22 @@ Where does the authoritative data live?
 
 ```
                     ┌─────────────────────┐
-                    │   LDAP (id.apache.org)│  ← THE source of truth for people,
-                    │   + committee-info.txt│     groups, PMC membership
+                    │ LDAP (id.apache.org)│  ← THE source of truth for people,
+                    │ + committee-info.txt│     groups, PMC membership
                     └──────────┬──────────┘
                                │
               ┌────────────────┼────────────────┐
               │                │                │
-    ┌─────────▼──────┐  ┌─────▼─────┐  ┌──────▼──────┐
-    │  Whimsy/Roster │  │ Incubator │  │  Board      │
-    │  (public JSON) │  │podlings.xml│  │  minutes    │
-    └─────────┬──────┘  └─────┬─────┘  └──────┬──────┘
+    ┌─────────▼──────┐   ┌─────▼──────┐  ┌──────▼──────┐
+    │  Whimsy/Roster │   │ Incubator  │  │  Board      │
+    │  (public JSON) │   │podlings.xml│  │  minutes    │
+    └─────────┬──────┘   └─────┬──────┘  └──────┬──────┘
               │                │                │
               └────────────────┼────────────────┘
                                │
                     ┌──────────▼──────────┐
-                    │ projects.apache.org  │  ← SECONDARY: aggregates from above
-                    │ (DOAP + cronjobs)    │     + project-maintained DOAP files
+                    │ projects.apache.org │  ← SECONDARY: aggregates from above
+                    │ (DOAP + cronjobs)   │     + project-maintained DOAP files
                     └─────────────────────┘
 
 ```
