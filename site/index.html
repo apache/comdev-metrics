@@ -90,6 +90,7 @@
         .tab.active { background: white; font-weight: 600; border-bottom: 1px solid white; margin-bottom: -1px; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        .badge-new { display: inline-block; background: #e8f5e9; color: #2e7d32; font-size: 0.75rem; font-weight: 600; padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; }
     </style>
 </head>
 <body>
@@ -129,7 +130,7 @@
     <div class="section" style="border-radius: 0 8px 8px 8px;">
         <div class="tab-content" id="tab-growth">
             <h2>Community Growth (Last 12 Months)</h2>
-            <p style="color:#666;font-size:0.9rem;margin-bottom:1rem"><span style="display:inline-block;width:12px;height:12px;background:#1a73e8;border-radius:2px;vertical-align:middle"></span> New Committers &nbsp; <span style="display:inline-block;width:12px;height:12px;background:#d45500;border-radius:2px;vertical-align:middle"></span> New PMC members</p>
+            <p style="color:#666;font-size:0.9rem;margin-bottom:1rem"><span style="display:inline-block;width:12px;height:12px;background:#1a73e8;border-radius:2px;vertical-align:middle"></span> New Committers &nbsp; <span style="display:inline-block;width:12px;height:12px;background:#d45500;border-radius:2px;vertical-align:middle"></span> New PMC members &nbsp; <span class="badge-new">New PMC</span> = established in last 12 months</p>
             <table id="growth-table">
                 <thead><tr><th>Project</th><th>Committers</th><th>PMC</th><th></th></tr></thead>
                 <tbody></tbody>
@@ -294,6 +295,21 @@
             const projectNames = {};
             committees.forEach(pmc => { projectNames[pmc.id] = pmc.name; });
 
+            // Identify projects established in the last 12 months
+            const recentlyEstablished = new Set();
+            committees.forEach(pmc => {
+                if (pmc.established) {
+                    // Format is "MM/YYYY"
+                    const parts = pmc.established.split('/');
+                    if (parts.length === 2) {
+                        const estDate = new Date(parseInt(parts[1]), parseInt(parts[0]) - 1, 1);
+                        if (estDate >= sixMonthsAgo) {
+                            recentlyEstablished.add(pmc.id);
+                        }
+                    }
+                }
+            });
+
             const allGrowthProjects = new Set([
                 ...Object.keys(growthByProject),
                 ...Object.keys(newCommByProject),
@@ -313,9 +329,10 @@
             growthMerged.forEach(data => {
                 const pmcPct = (data.pmcCount / maxGrowth * 100).toFixed(0);
                 const commPct = (data.commCount / maxGrowth * 100).toFixed(0);
+                const newBadge = recentlyEstablished.has(data.id) ? '<span class="badge-new">New PMC</span>' : '';
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><a href="project.html?id=${data.id}">${data.name}</a></td>
+                    <td><a href="project.html?id=${data.id}">${data.name}</a>${newBadge}</td>
                     <td style="width:80px;text-align:right">${data.commCount > 0 ? data.commCount : ''}</td>
                     <td style="width:80px;text-align:right">${data.pmcCount > 0 ? data.pmcCount : ''}</td>
                     <td style="width:35%"><div class="bar" style="display:flex"><div style="background:#1a73e8;border-radius:3px 0 0 3px;height:100%;width:${commPct}%"></div><div style="background:#d45500;height:100%;width:${pmcPct}%"></div></div></td>
