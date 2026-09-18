@@ -1,0 +1,83 @@
+name: Update code
+# Builds the site and uploads it to github-pages, without fetching any data
+# Allows code updates to be applied without the expense of fetching all the data
+# Caching is achieved by downloading the gh-pages archive created at the end of each run
+
+on:
+  # cron: TBA
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# Actions is needed for gh run download
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: read
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+      - name: Setup GH Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Install dependencies
+        run: uv sync --all-groups
+      - name: Build site
+        # GH_TOKEN is needed by GH actions
+        # GITHUB_TOKEN is used by the asfmetrics code
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # fetch the previously deployed site, which contains the cached data
+          if gh run download --name github-pages --dir /tmp/ghp
+          then
+            rm -rf site/data # drop any existing data
+            mkdir site/data
+            # unpack the archive
+            tar xvf /tmp/ghp/artifact.tar --directory site
+          else
+            echo "No previous entry found"
+          fi
+
+          # TEMP: drop obsolete file
+          rm -f site/data/_cache/project_health.json
+
+          # Now build the site:
+          cp config.example.yml config.yml
+          uv run asfmetrics --skip-git --skip-mailing-lists
+
+      - name: Upload artifact
+        # keep whatever has been downloaded so far
+        # TODO: restore from this artifact if more recent than github-pages
+        # (the artifact is deleted when packaged)
+        if: always()
+        # This contains the site and related json files
+        # We use this to deploy the site to gh-pages and as a data cache
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          # Upload site to artifact.jar
+          path: site
+          # needed for cache
+          retention-days: 14
+      - name: Deploy to GitHub Pages
+        # This packages artifact.jar into the artifact github-pages (as a zip file)
+        # The site is then deployed to https://apache.github.io/comdev-metrics/
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
