@@ -9,6 +9,9 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
 asfmetrics = "asfmetrics.cli:main"
 

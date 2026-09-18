@@ -41,6 +41,16 @@ cd site && python3 -m http.server 8888
 # Open http://localhost:8888
 ```
 
+## Testing
+
+```bash
+# Install dev dependencies (includes pytest)
+uv sync --all-groups
+
+# Run all tests
+uv run pytest -v
+```
+
 ## What It Does
 
 1. **Fetches** foundation-wide data from projects.apache.org JSON files (committees, rosters, releases, podlings, repositories)
@@ -124,6 +134,7 @@ comdev-metrics/
 │   ├── config.py           # Config loading (YAML, multi-path lookup)
 │   ├── trends.py           # Deterministic activity trend classification
 │   ├── collectors/
+│   │   ├── cache.py                 # Shared caching utilities (load/save/invalidate)
 │   │   ├── mailing_lists.py         # Pony Mail Foal API + caching
 │   │   ├── git_activity.py          # GitHub API + SVN log collector + caching
 │   │   ├── github_repos.py          # Repo inventory + project classification
@@ -137,6 +148,7 @@ comdev-metrics/
 │   ├── about.html          # Data sources and methodology documentation
 │   └── data/               # Generated JSON + cache (git-ignored)
 │       ├── _cache/
+│       │   ├── doap-warnings.json
 │       │   ├── mailing_lists/  # Per-project mailing list cache
 │       │   ├── git/            # Per-project git activity cache
 │       │   ├── committees.json
@@ -150,6 +162,7 @@ comdev-metrics/
 │       └── <project>_git.json  # Git activity data
 ├── DATA_SOURCES.md         # Where all the data comes from
 ├── PLAN.md                 # Execution plan and milestones
+├── tests/                  # Unit tests (pytest)
 └── LICENSE                 # Apache License 2.0
 ```
 
@@ -229,6 +242,7 @@ For local testing:
 cp config.example.yml config.yml
 cp .secrets.example .secrets   # add your GitHub token
 uv run asfmetrics --project comdev
+uv run pytest -v               # run tests
 ```
 
 **Planned**: Serve at `https://projects.apache.org/metrics` (via Alias or rewrite from the ComDev VM).
