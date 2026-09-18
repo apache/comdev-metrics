@@ -22,7 +22,7 @@ from asfmetrics.collectors.projects_apache_org import (
     extract_active_projects,
 )
 from asfmetrics.output.json_api import write_json
-from asfmetrics.health import compute_project_health
+from asfmetrics.trends import compute_activity_trends
 
 
 def status(msg: str):
@@ -200,9 +200,9 @@ def main():
     else:
         print("  skipping git/VCS collection (--skip-git)")
 
-    # Phase 4: Compute project health classifications
-    print("  computing project health classifications...")
-    compute_project_health(config)
+    # Phase 4: Compute activity trend classifications
+    print("  computing activity trend classifications...")
+    compute_activity_trends(config)
 
     print("\ndone.")
 

@@ -1,4 +1,4 @@
-"""Deterministic project health classification.
+"""Deterministic activity trend classification.
 
 Reads per-project mailing list and git JSON from site/data/,
 computes quarter-over-quarter trends, and classifies projects as
@@ -6,7 +6,7 @@ Declining, At Risk, or Dormant.
 
 All thresholds and logic are fixed — no ML/LLM involved.
 
-Output: site/data/_cache/project_health.json
+Output: site/data/_cache/activity_trends.json
 """
 
 import json
@@ -89,17 +89,17 @@ def _compute_trend(monthly_data: dict, recent_months: list, prior_months: list):
     return pct, recent_total, prior_total
 
 
-def compute_project_health(config: dict) -> dict:
-    """Compute health classifications for all projects.
+def compute_activity_trends(config: dict) -> dict:
+    """Compute activity trend classifications for all projects.
 
     Reads existing per-project JSON files from the output directory.
-    Writes _cache/project_health.json.
+    Writes _cache/activity_trends.json.
 
     Args:
         config: Full asfmetrics config dict.
 
     Returns:
-        The health data dict (also written to disk).
+        The trend data dict (also written to disk).
     """
     json_dir = Path(config.get("output", {}).get("json_dir", "./site/data/"))
     cache_dir = json_dir / "_cache"
@@ -238,11 +238,11 @@ def compute_project_health(config: dict) -> dict:
     }
 
     # Write output
-    output_path = cache_dir / "project_health.json"
+    output_path = cache_dir / "activity_trends.json"
     with open(output_path, "w") as f:
         json.dump(result, f, indent=2)
 
-    print(f"  project health: {len(declining)} declining, "
+    print(f"  activity trends: {len(declining)} declining, "
           f"{len(at_risk)} at risk, {len(dormant)} dormant "
           f"(of {len(projects)} total)")
 

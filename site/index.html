@@ -123,7 +123,7 @@
         <div class="tab" data-tab="releases">Recent Releases</div>
         <div class="tab" data-tab="mailing">Mailing Lists</div>
         <div class="tab active" data-tab="projects">All Projects</div>
-        <div class="tab" data-tab="health">Activity Trends</div>
+        <div class="tab" data-tab="trends">Activity Trends</div>
     </div>
 
     <div class="section" style="border-radius: 0 8px 8px 8px;">
@@ -162,10 +162,10 @@
                 <tbody></tbody>
             </table>
         </div>
-        <div class="tab-content" id="tab-health">
-            <h2 id="health-title">Activity Trends</h2>
-            <p id="health-window" style="color:#666;font-size:0.9rem;margin-bottom:0.5rem"></p>
-            <p style="color:#666;font-size:0.85rem;margin-bottom:1.5rem" id="health-methodology"></p>
+        <div class="tab-content" id="tab-trends">
+            <h2 id="trends-title">Activity Trends</h2>
+            <p id="trends-window" style="color:#666;font-size:0.9rem;margin-bottom:0.5rem"></p>
+            <p style="color:#666;font-size:0.85rem;margin-bottom:1.5rem" id="trends-methodology"></p>
 
             <h3 style="color:#555">⚫ Dormant <span id="dormant-count" style="font-weight:normal;color:#666"></span></h3>
             <p style="color:#666;font-size:0.85rem;margin-bottom:0.5rem">Near-zero activity across all metrics.</p>
@@ -177,19 +177,19 @@
             <h3 style="color:#c0392b;margin-top:2rem">🔴 Sharp Decline <span id="at-risk-count" style="font-weight:normal;color:#666"></span></h3>
             <p style="color:#666;font-size:0.85rem;margin-bottom:0.5rem">Both mailing list discussion and git commits down ≥ 30% quarter-over-quarter.</p>
             <table id="at-risk-table">
-                <thead><tr><th>Project</th><th class="health-ml-header">Mailing List (Q1 vs Q2)</th><th class="health-git-header">Git Commits (Q1 vs Q2)</th></tr></thead>
+                <thead><tr><th>Project</th><th class="trends-ml-header">Mailing List (Q1 vs Q2)</th><th class="trends-git-header">Git Commits (Q1 vs Q2)</th></tr></thead>
                 <tbody></tbody>
             </table>
 
             <h3 style="color:#e67e22;margin-top:2rem">🟡 Declining <span id="declining-count" style="font-weight:normal;color:#666"></span></h3>
             <p style="color:#666;font-size:0.85rem;margin-bottom:0.5rem">One or both metrics declining significantly, with meaningful prior activity.</p>
             <table id="declining-table">
-                <thead><tr><th>Project</th><th class="health-ml-header">Mailing List (Q1 vs Q2)</th><th class="health-git-header">Git Commits (Q1 vs Q2)</th></tr></thead>
+                <thead><tr><th>Project</th><th class="trends-ml-header">Mailing List (Q1 vs Q2)</th><th class="trends-git-header">Git Commits (Q1 vs Q2)</th></tr></thead>
                 <tbody></tbody>
             </table>
 
             <div style="margin-top:2rem;padding:1rem;background:#f8f9fa;border-radius:6px;font-size:0.85rem;color:#555">
-                <strong>Methodology:</strong> <span id="health-method-detail"></span><br>
+                <strong>Methodology:</strong> <span id="trends-method-detail"></span><br>
                 <strong>Thresholds:</strong> Sharp Decline = both axes ≤ <span id="threshold-decline"></span>%. 
                 Declining = one axis ≤ <span id="threshold-decline2"></span>% (min <span id="threshold-prior"></span> prior activity).
                 Dormant = ≤ <span id="threshold-dormant-commits"></span> commits + ≤ <span id="threshold-dormant-msgs"></span> messages in recent quarter.
@@ -407,46 +407,46 @@
             }
 
             // --- Activity Trends tab ---
-            let healthData = null;
+            let trendData = null;
             try {
-                const healthResp = await fetch('data/_cache/project_health.json');
-                if (healthResp.ok) {
-                    healthData = await healthResp.json();
+                const trendResp = await fetch('data/_cache/activity_trends.json');
+                if (trendResp.ok) {
+                    trendData = await trendResp.json();
                 }
-            } catch (healthErr) { console.warn('project_health.json not available:', healthErr); }
+            } catch (trendErr) { console.warn('activity_trends.json not available:', trendErr); }
 
-            if (healthData) {
-                const win = healthData.window;
+            if (trendData) {
+                const win = trendData.window;
                 // Update table headers with actual quarter labels
                 const qLabel = `(${win.prior_label} → ${win.recent_label})`;
-                document.querySelectorAll('.health-ml-header').forEach(el => { el.textContent = `Mailing List ${qLabel}`; });
-                document.querySelectorAll('.health-git-header').forEach(el => { el.textContent = `Git Commits ${qLabel}`; });
+                document.querySelectorAll('.trends-ml-header').forEach(el => { el.textContent = `Mailing List ${qLabel}`; });
+                document.querySelectorAll('.trends-git-header').forEach(el => { el.textContent = `Git Commits ${qLabel}`; });
 
                 document.getElementById('dormant-ml-header').textContent = `Mailing List Msgs (${win.recent_label})`;
                 document.getElementById('dormant-git-header').textContent = `Git Commits (${win.recent_label})`;
 
-                document.getElementById('health-title').textContent =
+                document.getElementById('trends-title').textContent =
                     `Activity Trends — ${win.recent_label} vs ${win.prior_label}`;
-                document.getElementById('health-window').textContent = win.description;
-                document.getElementById('health-methodology').textContent =
+                document.getElementById('trends-window').textContent = win.description;
+                document.getElementById('trends-methodology').textContent =
                     'Mailing list counts include only human discussion lists (dev, user, general, discuss). ' +
                     'Automated lists (notifications, commits, issues) are excluded. Git commits are summed across all repos.';
 
-                const thr = healthData.thresholds;
+                const thr = trendData.thresholds;
                 document.getElementById('threshold-decline').textContent = thr.decline_pct;
                 document.getElementById('threshold-decline2').textContent = thr.decline_pct;
                 document.getElementById('threshold-prior').textContent = thr.min_prior_activity;
                 document.getElementById('threshold-dormant-commits').textContent = thr.dormant_commits;
                 document.getElementById('threshold-dormant-msgs').textContent = thr.dormant_messages;
-                document.getElementById('health-method-detail').textContent =
+                document.getElementById('trends-method-detail').textContent =
                     `Quarter-over-quarter comparison: ${win.recent_label} (recent) vs ${win.prior_label} (prior). ` +
                     `Current partial month excluded. Only projects with data files are assessed.`;
 
                 // In JSON: "declining" = both axes down (severe), "at_risk" = one axis down (moderate)
                 // On page: "Sharp Decline" (red) = severe, "Declining" (orange) = moderate
-                document.getElementById('at-risk-count').textContent = `(${healthData.declining.length})`;
-                document.getElementById('declining-count').textContent = `(${healthData.at_risk.length})`;
-                document.getElementById('dormant-count').textContent = `(${healthData.dormant.length})`;
+                document.getElementById('at-risk-count').textContent = `(${trendData.declining.length})`;
+                document.getElementById('declining-count').textContent = `(${trendData.at_risk.length})`;
+                document.getElementById('dormant-count').textContent = `(${trendData.dormant.length})`;
 
                 function trendCell(pct, prior, recent, label) {
                     if (pct === null) return `<span style="color:#999">no data</span>`;
@@ -455,7 +455,7 @@
                            `<span style="color:#888;font-size:0.85rem">(${prior}→${recent} ${label})</span>`;
                 }
 
-                function fillHealthTable(tableId, entries) {
+                function fillTrendTable(tableId, entries) {
                     const tbody = document.querySelector(`#${tableId} tbody`);
                     entries.forEach(e => {
                         const row = document.createElement('tr');
@@ -472,12 +472,12 @@
 
                 // "declining" in JSON = both axes down = "At Risk" on the page (red, severe)
                 // "at_risk" in JSON = one axis down = "Declining" on the page (orange, warning)
-                fillHealthTable('at-risk-table', healthData.declining);
-                fillHealthTable('declining-table', healthData.at_risk);
+                fillTrendTable('at-risk-table', trendData.declining);
+                fillTrendTable('declining-table', trendData.at_risk);
 
                 // Dormant table is simpler
                 const dormantTbody = document.querySelector('#dormant-table tbody');
-                healthData.dormant.forEach(e => {
+                trendData.dormant.forEach(e => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td><a href="project.html?id=${e.project}">${projectNames[e.project] || e.project}</a></td>
