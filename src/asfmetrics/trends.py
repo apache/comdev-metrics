@@ -12,7 +12,6 @@ Output: site/data/_cache/activity_trends.json
 import json
 from collections import defaultdict
 from datetime import date, timedelta
-from pathlib import Path
 
 from asfmetrics.config import get_json_dir, get_cache_dir
 

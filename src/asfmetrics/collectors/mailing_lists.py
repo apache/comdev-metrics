@@ -16,13 +16,11 @@ API Reference: Pony Mail Foal uses POST with JSON body to /api/*.json.
 See: incubator-ponymail-foal/docs/API.md
 """
 
-import json
 from datetime import datetime
-from pathlib import Path
+import httpx
 
 from asfmetrics.collectors import cache
 
-import httpx
 
 
 PONYMAIL_API = "https://lists.apache.org/api/"
@@ -165,7 +163,7 @@ def collect_mailing_list_stats(
 
     # Check cache
     cache = cache.load_cache(project, config, _COLLECTOR_NAME)
-    current_month = cache.current_month_str()
+    # current_month = cache.current_month_str()
 
     if cache and cache.cache_is_current(cache):
         # Cache is fresh — return directly without any API calls

@@ -10,7 +10,6 @@ from asfmetrics.config import (
 )
 from asfmetrics.collectors.mailing_lists import (
     collect_mailing_list_stats,
-    discover_all_active_projects,
     invalidate_cache,
 )
 from asfmetrics.collectors.git_activity import (
@@ -21,7 +20,6 @@ from asfmetrics.collectors.git_activity import (
 from asfmetrics.collectors.github_repos import collect_repo_inventory
 from asfmetrics.collectors.projects_apache_org import (
     collect_projects_apache_org,
-    extract_active_projects,
 )
 from asfmetrics.output.json_api import write_json
 from asfmetrics.trends import compute_activity_trends
