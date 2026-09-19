@@ -19,7 +19,7 @@ See: incubator-ponymail-foal/docs/API.md
 from datetime import datetime
 import httpx
 
-from asfmetrics.collectors import cache
+from asfmetrics.collectors import cache as CACHE
 
 
 
@@ -35,7 +35,7 @@ _COLLECTOR_NAME = "mailing_lists"
 
 def invalidate_cache(config: dict) -> None:
     """Remove all mailing list cache files."""
-    cache.invalidate(config, _COLLECTOR_NAME)
+    CACHE.invalidate(config, _COLLECTOR_NAME)
 
 
 
@@ -162,10 +162,10 @@ def collect_mailing_list_stats(
         domain = f"{project}.apache.org"
 
     # Check cache
-    cache = cache.load_cache(project, config, _COLLECTOR_NAME)
-    # current_month = cache.current_month_str()
+    cache = CACHE.load_cache(project, config, _COLLECTOR_NAME)
+    # current_month = CACHE.current_month_str()
 
-    if cache and cache.cache_is_current(cache):
+    if cache and CACHE.cache_is_current(cache):
         # Cache is fresh — return directly without any API calls
         return _build_result_from_cache(project, domain, timespan, cache)
 
@@ -189,7 +189,7 @@ def collect_mailing_list_stats(
                 # Update totals from the full month range
                 list_data["messages"] = sum(
                     v for k, v in cached_months.items()
-                    if k >= cache.twelve_months_ago_str()
+                    if k >= CACHE.twelve_months_ago_str()
                 )
                 list_data["participants"] = stats.get("numparts", list_data.get("participants", 0))
                 list_data["threads"] = stats.get("no_threads", list_data.get("threads", 0))
@@ -197,7 +197,7 @@ def collect_mailing_list_stats(
 
         if updated:
             cache["_fetched_at"] = datetime.now().strftime("%Y-%m-%d")
-            cache.save_cache(project, cache, config, _COLLECTOR_NAME)
+            CACHE.save_cache(project, cache, config, _COLLECTOR_NAME)
 
         return _build_result_from_cache(project, domain, timespan, cache)
 
@@ -240,7 +240,7 @@ def collect_mailing_list_stats(
         "_domain": domain,
         "lists": cache_lists,
     }
-    cache.save_cache(project, cache_data, config, _COLLECTOR_NAME)
+    CACHE.save_cache(project, cache_data, config, _COLLECTOR_NAME)
 
     return {
         "project": project,
@@ -261,7 +261,7 @@ def _build_result_from_cache(
 
     Filters to the 12-month window for the output.
     """
-    cutoff = cache.twelve_months_ago_str()
+    cutoff = CACHE.twelve_months_ago_str()
     active_lists = []
 
     for list_id, list_data in cache.get("lists", {}).items():
