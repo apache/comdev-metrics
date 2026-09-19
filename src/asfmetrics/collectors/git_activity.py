@@ -93,17 +93,17 @@ def _check_rate_limit() -> None:
             wait_seconds = max(reset_at - now + 5, 0)  # +5s buffer
             reset_time = datetime.fromtimestamp(reset_at).strftime("%H:%M:%S")
             print(f"\n{'='*60}")
-            print(f"  ⚠️  GITHUB API RATE LIMIT WARNING")
+            print("  ⚠️  GITHUB API RATE LIMIT WARNING")
             print(f"  Remaining: {remaining}/{_rate_limit['limit']}")
             print(f"  Used this session: {_rate_limit['used']}")
             print(f"  Resets at: {reset_time} ({wait_seconds}s from now)")
-            print(f"  PAUSING until reset...")
+            print("  PAUSING until reset...")
             print(f"{'='*60}\n")
             if wait_seconds > 0:
                 time.sleep(wait_seconds)
             # After sleeping, optimistically reset our counter
             _rate_limit["remaining"] = _rate_limit["limit"]
-            print(f"  ✓ Rate limit reset. Resuming.\n")
+            print("  ✓ Rate limit reset. Resuming.\n")
         else:
             print(f"\n  ⚠️  Rate limit low ({remaining} remaining) but no reset time known. Continuing cautiously.\n")
 
@@ -495,7 +495,7 @@ def collect_svn_activity(
     project: str,
     svn_url: str,
     config: dict,
-    _progress: str = "",
+    progress: str = "", # pylint: disable=unused-argument
 ) -> dict:
     """Collect commit activity from SVN, with caching. Same per-repo structure."""
     # current_month = CACHE.current_month_str()

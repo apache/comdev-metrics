@@ -75,14 +75,14 @@ def _check_gh_rate_limit() -> None:
             wait_seconds = max(reset_at - now + 5, 0)
             reset_time = datetime.fromtimestamp(reset_at).strftime("%H:%M:%S")
             print(f"\n{'='*60}")
-            print(f"  ⚠️  GITHUB API RATE LIMIT WARNING (repo inventory)")
+            print("  ⚠️  GITHUB API RATE LIMIT WARNING (repo inventory)")
             print(f"  Remaining: {remaining}/{_gh_rate['limit']} | Resets at: {reset_time} ({wait_seconds}s)")
-            print(f"  PAUSING until reset...")
+            print("  PAUSING until reset...")
             print(f"{'='*60}\n")
             if wait_seconds > 0:
                 time.sleep(wait_seconds)
             _gh_rate["remaining"] = _gh_rate["limit"]
-            print(f"  ✓ Rate limit reset. Resuming.\n")
+            print("  ✓ Rate limit reset. Resuming.\n")
 
 
 def resolve_github_token(config: dict) -> str | None:
