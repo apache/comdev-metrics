@@ -94,7 +94,7 @@ def fetch_all_foundation_data(config: dict) -> dict:
     return data
 
 
-def build_mail_domain_map(config: dict) -> dict[str, str]:
+def build_mail_domain_map(_config: dict) -> dict[str, str]:
     """Build a committee-id → mailing list domain map from Whimsy.
 
     Fetches committee-info.json and extracts the 'mail_list' field,
@@ -230,7 +230,7 @@ def detect_roster_changes(current_data: dict, state_dir: Path) -> dict:
     return changes
 
 
-def collect_new_committers(data: dict, config: dict) -> dict:
+def collect_new_committers(data: dict, _config: dict) -> dict:
     """Detect new committers using Whimsy LDAP createTimestamp.
 
     Fetches public_ldap_people.json from Whimsy and cross-references

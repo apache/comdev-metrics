@@ -374,7 +374,6 @@ def collect_github_activity(
     Output format: list of repos each with their own monthly time-series
     (mirrors mailing list structure for the frontend).
     """
-    current_month = CACHE.current_month_str()
     cache = CACHE.load_cache(project, config, _COLLECTOR_NAME)
 
     if cache and CACHE.cache_is_current(cache) and "repos_data" in cache:
@@ -496,7 +495,7 @@ def collect_svn_activity(
     project: str,
     svn_url: str,
     config: dict,
-    progress: str = "",
+    _progress: str = "",
 ) -> dict:
     """Collect commit activity from SVN, with caching. Same per-repo structure."""
     # current_month = CACHE.current_month_str()
