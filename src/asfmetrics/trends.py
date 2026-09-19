@@ -129,7 +129,7 @@ def compute_activity_trends(config: dict) -> dict:
         ml_months = defaultdict(int)
         if ml_path.exists():
             try:
-                with open(ml_path) as f:
+                with open(ml_path, encoding='utf-8') as f:
                     ml_data = json.load(f)
                 for lst in ml_data.get("active_lists", []):
                     if lst.get("list_name", "") in DISCUSSION_LISTS:
@@ -147,7 +147,7 @@ def compute_activity_trends(config: dict) -> dict:
         git_total_12mo = 0
         if git_path.exists():
             try:
-                with open(git_path) as f:
+                with open(git_path, encoding='utf-8') as f:
                     git_data = json.load(f)
                 for repo in git_data.get("active_repos", []):
                     git_total_12mo += repo.get("commits", 0)
@@ -239,7 +239,7 @@ def compute_activity_trends(config: dict) -> dict:
 
     # Write output
     output_path = cache_dir / "activity_trends.json"
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding='utf-8') as f:
         json.dump(result, f, indent=2)
 
     print(f"  activity trends: {len(declining)} declining, "

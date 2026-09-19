@@ -56,7 +56,7 @@ def load_config(path: Path | None = None) -> dict:
             + "\n".join(f"  - {p}" for p in CONFIG_SEARCH_PATHS)
             + "\nCopy config.example.yml to config.yml to get started."
         )
-    with open(path) as f:
+    with open(path, encoding='utf-8') as f:
         return yaml.safe_load(f)
 
 

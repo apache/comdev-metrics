@@ -20,7 +20,7 @@ def write_json(project: str, stats: dict, config: dict) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     out_path = output_dir / f"{project}.json"
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding='utf-8') as f:
         json.dump(stats, f, indent=2, default=str)
 
     return out_path

@@ -140,7 +140,7 @@ def main():
             project_file = json_dir / f"{project_name}.json"
             if project_file.exists():
                 try:
-                    with open(project_file) as f:
+                    with open(project_file, encoding='utf-8') as f:
                         data = json.load(f)
                     for lst in data.get("active_lists", []):
                         summary.append({
@@ -152,7 +152,7 @@ def main():
                 except (json.JSONDecodeError, OSError):
                     pass
         summary_path = get_cache_dir(config) / MAILING_SUMMARY_FILE
-        with open(summary_path, "w") as f:
+        with open(summary_path, "w", encoding='utf-8') as f:
             json.dump(summary, f)
         status_done(f"mailing summary: {len(summary)} lists written to {MAILING_SUMMARY_FILE}")
     else:

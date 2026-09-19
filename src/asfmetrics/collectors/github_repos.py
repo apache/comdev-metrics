@@ -105,7 +105,7 @@ def resolve_github_token(config: dict) -> str | None:
     # 2. Secrets files
     for secrets_path in SECRETS_FILES:
         if secrets_path.exists():
-            for line in secrets_path.read_text().splitlines():
+            for line in secrets_path.read_text(encoding='utf-8').splitlines():
                 if line.startswith("GITHUB_TOKEN="):
                     return line.split("=", 1)[1].strip()
 
@@ -254,7 +254,7 @@ def detect_changes(current: dict, previous_path: Path) -> dict:
         changes["new_projects"] = list(current.keys())
         return changes
 
-    with open(previous_path) as f:
+    with open(previous_path, encoding='utf-8') as f:
         previous = json.load(f)
 
     prev_names = set(previous.keys())
@@ -310,7 +310,7 @@ def collect_repo_inventory(config: dict) -> dict:
     changes = detect_changes(project_map, state_path)
 
     # Save current state for next run
-    with open(state_path, "w") as f:
+    with open(state_path, "w", encoding='utf-8') as f:
         json.dump(project_map, f, indent=2)
 
     return {

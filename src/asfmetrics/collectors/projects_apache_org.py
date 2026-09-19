@@ -87,7 +87,7 @@ def fetch_all_foundation_data(config: dict) -> dict:
             data[key] = content
             # Cache locally for offline/debugging use
             cache_path = cache_dir / filename
-            with open(cache_path, "w") as f:
+            with open(cache_path, "w", encoding='utf-8') as f:
                 json.dump(content, f, indent=2)
 
     print(f"    fetched {len(data)}/{len(FOUNDATION_FILES)} files successfully")
@@ -198,7 +198,7 @@ def detect_roster_changes(current_data: dict, state_dir: Path) -> dict:
 
     # Compare against previous
     if state_path.exists():
-        with open(state_path) as f:
+        with open(state_path, encoding='utf-8') as f:
             previous_roster = json.load(f)
 
         new_entries = set(current_roster.keys()) - set(previous_roster.keys())
@@ -214,17 +214,17 @@ def detect_roster_changes(current_data: dict, state_dir: Path) -> dict:
     retired = current_data.get("committees_retired", [])
     retired_state_path = state_dir / "_retired_previous.json"
     if isinstance(retired, list) and retired_state_path.exists():
-        with open(retired_state_path) as f:
+        with open(retired_state_path, encoding='utf-8') as f:
             prev_retired = json.load(f)
         prev_ids = {r.get("id") for r in prev_retired if isinstance(r, dict)}
         curr_ids = {r.get("id") for r in retired if isinstance(r, dict)}
         changes["newly_retired"] = sorted(curr_ids - prev_ids)
 
     # Save current state for next run
-    with open(state_path, "w") as f:
+    with open(state_path, "w", encoding='utf-8') as f:
         json.dump(current_roster, f)
     if isinstance(retired, list):
-        with open(retired_state_path, "w") as f:
+        with open(retired_state_path, "w", encoding='utf-8') as f:
             json.dump(retired, f)
 
     return changes
@@ -330,7 +330,7 @@ def collect_projects_apache_org(config: dict) -> dict:
 
     # Save new committers data for the frontend
     cache_dir = get_cache_dir(config)
-    with open(cache_dir / NEW_COMMITTERS_FILE, "w") as f:
+    with open(cache_dir / NEW_COMMITTERS_FILE, "w", encoding='utf-8') as f:
         json.dump(new_committers, f, indent=2)
 
     print(f"    {len(active_projects)} active projects")

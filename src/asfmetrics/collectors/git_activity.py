@@ -669,7 +669,7 @@ def collect_git_activity(project: str, config: dict, progress: str = "") -> dict
     if vcs == "github" and not overrides.get("vcs"):
         repos_cache = get_cache_dir(config) / "repositories.json"
         if repos_cache.exists():
-            with open(repos_cache) as f:
+            with open(repos_cache, encoding='utf-8') as f:
                 all_repos = json.load(f)
             # Check if project has SVN but no git repos
             has_svn = f"{project}-svn" in all_repos
@@ -704,7 +704,7 @@ def collect_git_activity(project: str, config: dict, progress: str = "") -> dict
             # Try to load from the project map (built by github_repos.py)
             project_map_path = get_json_dir(config) / PROJECT_MAP_FILE
             if project_map_path.exists():
-                with open(project_map_path) as f:
+                with open(project_map_path, encoding='utf-8') as f:
                     project_map = json.load(f)
                 if project in project_map:
                     repos = [

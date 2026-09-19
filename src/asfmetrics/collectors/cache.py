@@ -65,7 +65,7 @@ def load_cache(project: str, config: dict, collector_name: str) -> dict | None:
     if not cache_path.exists():
         return None
     try:
-        with open(cache_path) as f:
+        with open(cache_path, encoding='utf-8') as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return None
@@ -74,7 +74,7 @@ def load_cache(project: str, config: dict, collector_name: str) -> dict | None:
 def save_cache(project: str, cache_data: dict, config: dict, collector_name: str) -> None:
     """Save collected data to the project cache."""
     cache_path = collector_cache_dir(config, collector_name) / f"{project}.json"
-    with open(cache_path, "w") as f:
+    with open(cache_path, "w", encoding='utf-8') as f:
         json.dump(cache_data, f, indent=2)
 
 

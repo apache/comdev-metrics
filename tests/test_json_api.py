@@ -11,7 +11,7 @@ def test_write_json_creates_file(tmp_path):
     result = write_json("kafka", stats, config)
     assert result.exists()
     assert result.name == "kafka.json"
-    with open(result) as f:
+    with open(result, encoding='utf-8') as f:
         loaded = json.load(f)
     assert loaded == stats
 
@@ -26,6 +26,6 @@ def test_write_json_overwrites(tmp_path):
     config = {"output": {"json_dir": str(tmp_path / "data")}}
     write_json("proj", {"version": 1}, config)
     write_json("proj", {"version": 2}, config)
-    with open(tmp_path / "data" / "proj.json") as f:
+    with open(tmp_path / "data" / "proj.json", encoding='utf-8') as f:
         loaded = json.load(f)
     assert loaded["version"] == 2
