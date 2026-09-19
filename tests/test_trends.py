@@ -93,7 +93,7 @@ def test_compute_trend_missing_months():
 def test_compute_trend_no_change():
     data = {"2026-01": 10, "2026-02": 10, "2026-03": 10,
             "2026-04": 10, "2026-05": 10, "2026-06": 10}
-    pct, recent, prior = _compute_trend(
+    pct, _recent, _prior = _compute_trend(
         data,
         recent_months=["2026-04", "2026-05", "2026-06"],
         prior_months=["2026-01", "2026-02", "2026-03"],

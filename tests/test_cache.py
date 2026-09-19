@@ -1,7 +1,6 @@
 """Tests for collectors/cache.py — shared caching utilities."""
 
 from datetime import datetime
-from pathlib import Path
 
 from asfmetrics.collectors.cache import (
     cache_is_current,
