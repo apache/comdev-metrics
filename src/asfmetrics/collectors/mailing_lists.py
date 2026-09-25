@@ -18,6 +18,8 @@ See: incubator-ponymail-foal/docs/API.md
 
 from datetime import datetime
 import time
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import re
 import httpx
 
@@ -32,6 +34,12 @@ ACTIVITY_THRESHOLD = "12M"  # Full year — trends need context beyond a single 
 
 
 _COLLECTOR_NAME = "mailing_lists"
+
+# Max concurrent per-month numparts requests to the Pony Mail API. Kept
+# deliberately low (4) to stay a polite consumer of a shared community API
+# and avoid rate-limiting/blacklisting. Do not raise without checking ASF
+# infra tolerance.
+_MAX_CONCURRENCY = 4
 
 
 def _widen_timespan_one_month(timespan: str) -> str:
@@ -141,12 +149,15 @@ def _participants_by_month(emails: list) -> dict[str, int]:
 # Module-level counter so the CLI can report how many per-month API calls
 # the hybrid strategy actually made on a run (timing/observability).
 _MONTH_CALLS = 0
+# Guards _MONTH_CALLS since per-month calls now run on a thread pool.
+_MONTH_CALLS_LOCK = threading.Lock()
 
 
 def reset_call_counter() -> None:
     """Reset the per-month API call counter (call once at run start)."""
     global _MONTH_CALLS
-    _MONTH_CALLS = 0
+    with _MONTH_CALLS_LOCK:
+        _MONTH_CALLS = 0
 
 
 def get_call_counter() -> int:
@@ -175,7 +186,8 @@ def _fetch_month_numparts(
     url = f"{base_url}stats.json"
     payload = {"list": list_name, "domain": domain, "d": month_key}
     try:
-        _MONTH_CALLS += 1
+        with _MONTH_CALLS_LOCK:
+            _MONTH_CALLS += 1
         resp = httpx.post(url, json=payload, timeout=30)
         resp.raise_for_status()
         data = resp.json()
@@ -213,16 +225,31 @@ def _participants_by_month_hybrid(
     client_counts = _participants_by_month(emails)
 
     result: dict[str, int] = {}
+    api_months: list[str] = []
     for month_key, msg_count in active_months.items():
         if only_months is not None and month_key not in only_months:
             continue
         if msg_count > EMAILS_CAP_THRESHOLD:
-            # emails[] unreliable for this month → authoritative per-month call
-            np = _fetch_month_numparts(list_name, domain, month_key, base_url)
-            result[month_key] = np if np is not None else client_counts.get(month_key, 0)
+            # emails[] unreliable for this month → needs an authoritative
+            # per-month call (collected below and run concurrently).
+            api_months.append(month_key)
         else:
-            # Small month → emails[] is complete; client-side count is exact
+            # Small month → emails[] is complete; client-side count is exact.
             result[month_key] = client_counts.get(month_key, 0)
+
+    # Run the per-month numparts calls concurrently, but bounded to
+    # _MAX_CONCURRENCY to stay polite to the shared Pony Mail API. Each
+    # call falls back to the client-side count if it fails.
+    if api_months:
+        def _one(mk: str) -> tuple[str, int]:
+            np = _fetch_month_numparts(list_name, domain, mk, base_url)
+            return mk, (np if np is not None else client_counts.get(mk, 0))
+
+        workers = min(_MAX_CONCURRENCY, len(api_months))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for mk, count in pool.map(_one, api_months):
+                result[mk] = count
+
     return result
 
 
