@@ -17,6 +17,10 @@ See: incubator-ponymail-foal/docs/API.md
 """
 
 from datetime import datetime
+import time
+import threading
+from concurrent.futures import ThreadPoolExecutor
+import re
 import httpx
 
 from asfmetrics.collectors import cache as CACHE
@@ -30,6 +34,223 @@ ACTIVITY_THRESHOLD = "12M"  # Full year — trends need context beyond a single 
 
 
 _COLLECTOR_NAME = "mailing_lists"
+
+# Max concurrent per-month numparts requests to the Pony Mail API. Kept
+# deliberately low (4) to stay a polite consumer of a shared community API
+# and avoid rate-limiting/blacklisting. Do not raise without checking ASF
+# infra tolerance.
+_MAX_CONCURRENCY = 4
+
+
+def _widen_timespan_one_month(timespan: str) -> str:
+    """Return a Pony Mail timespan one month wider than ``timespan``.
+
+    e.g. "12M" -> "13M". Used so the fetched ``emails[]`` array reaches
+    back far enough to cover the participant window's boundary month (which
+    starts one month before the 12-month reporting cutoff). Without this the
+    boundary month's messages exist in ``active_months`` (full history) but
+    have no ``emails[]`` entries, so the client-side participant count for
+    that month is 0 on low-volume lists. Falls back to the input unchanged
+    if it is not the expected "<n>M" form.
+    """
+    m = re.fullmatch(r"(\d+)M", timespan.strip())
+    if not m:
+        return timespan
+    return f"{int(m.group(1)) + 1}M"
+
+# Above this many messages in a single month, the stats.json ``emails[]``
+# array is capped by the server and does NOT contain every message — so a
+# client-side distinct-sender count computed from it would undercount (and
+# can miss whole months entirely). For any such month we instead make one
+# lightweight per-month call and trust the server's ``numparts`` aggregate.
+# Months at or below this count return a complete ``emails[]`` and are
+# counted client-side with GitHub-identity normalization (cheaper: no extra
+# call, and honours the (via GitHub) dedupe). Tune if the observed cap moves.
+EMAILS_CAP_THRESHOLD = 500
+
+
+# Matches Pony Mail's "(via GitHub)" relay wrapper, e.g.
+#   "rbowen (via GitHub)" <git@apache.org>
+# The underlying human is the leading token before the wrapper.
+_VIA_GITHUB_RE = re.compile(r"\s*\(via GitHub\)\s*", re.IGNORECASE)
+
+
+def _normalize_sender(raw_from: str) -> str | None:
+    """Reduce a raw ``emails[].from`` value to a stable participant key.
+
+    - Strips display-name quoting and the surrounding ``<addr>``.
+    - Collapses ``"name (via GitHub)"`` relayed senders to the underlying
+      username, so ``rbowen (via GitHub)`` and ``rbowen`` count as one
+      participant (GitHub relays ARE real people acting through GitHub).
+    - Prefers the email address when present (most stable identity);
+      otherwise falls back to the cleaned display name.
+
+    Returns a lowercased key, or None if nothing usable is found.
+
+    Known limitation (accepted, Sep 2026): the same human who posts both
+    via a GitHub relay (keyed on username) AND via direct email (keyed on
+    address) counts as two distinct participants, because there is no
+    reliable username->email mapping in the archive payload. Building such
+    a map across 10k+ participants over 300+ projects is not feasible, so
+    we accept modest over-counting. On GitHub-heavy lists the same person
+    rarely does both in a month, so the effect is small.
+    """
+    if not raw_from:
+        return None
+    s = raw_from.strip()
+
+    # Split display name from <address> if present.
+    addr = None
+    name = s
+    m = re.match(r"^(.*?)<([^>]+)>\s*$", s)
+    if m:
+        name = m.group(1).strip()
+        addr = m.group(2).strip().lower()
+
+    name = name.strip().strip('"').strip()
+    is_via_github = bool(_VIA_GITHUB_RE.search(name))
+    name = _VIA_GITHUB_RE.sub("", name).strip().strip('"').strip()
+
+    # For GitHub relays the address is a shared bot address (e.g.
+    # git@apache.org / *@github.com), so the username in the display name
+    # is the real identity — key on that.
+    if is_via_github and name:
+        return name.lower()
+
+    if addr:
+        return addr
+    return name.lower() or None
+
+
+def _participants_by_month(emails: list) -> dict[str, int]:
+    """Count distinct normalized senders per calendar month.
+
+    Args:
+        emails: The ``emails[]`` array from a full (non-quick) stats.json
+            response. Each entry has ``from`` and ``epoch``.
+
+    Returns:
+        Dict of {YYYY-MM: distinct_sender_count}.
+    """
+    buckets: dict[str, set] = {}
+    for e in emails or []:
+        epoch = e.get("epoch")
+        if epoch is None:
+            continue
+        dt = datetime.utcfromtimestamp(epoch)
+        month_key = f"{dt.year}-{dt.month:02d}"
+        key = _normalize_sender(e.get("from", ""))
+        if key is None:
+            continue
+        buckets.setdefault(month_key, set()).add(key)
+    return {m: len(s) for m, s in buckets.items()}
+
+
+# Module-level counter so the CLI can report how many per-month API calls
+# the hybrid strategy actually made on a run (timing/observability).
+_MONTH_CALLS = 0
+# Guards _MONTH_CALLS since per-month calls now run on a thread pool.
+_MONTH_CALLS_LOCK = threading.Lock()
+
+
+def reset_call_counter() -> None:
+    """Reset the per-month API call counter (call once at run start)."""
+    global _MONTH_CALLS
+    with _MONTH_CALLS_LOCK:
+        _MONTH_CALLS = 0
+
+
+def get_call_counter() -> int:
+    """Return the number of per-month numparts calls made so far."""
+    return _MONTH_CALLS
+
+
+def _fetch_month_numparts(
+    list_name: str,
+    domain: str,
+    month_key: str,
+    base_url: str = PONYMAIL_API,
+) -> int | None:
+    """Fetch the server-side distinct-participant count for ONE month.
+
+    Makes a single ``stats.json`` call scoped to ``month_key`` (YYYY-MM)
+    and returns its ``numparts``. Used for high-volume months where the
+    ``emails[]`` array is capped and a client-side count is unreliable.
+
+    The response for a single month is small regardless of the list's
+    overall volume, so this is a lightweight call.
+
+    Returns the month's numparts, or None on failure.
+    """
+    global _MONTH_CALLS
+    url = f"{base_url}stats.json"
+    payload = {"list": list_name, "domain": domain, "d": month_key}
+    try:
+        with _MONTH_CALLS_LOCK:
+            _MONTH_CALLS += 1
+        resp = httpx.post(url, json=payload, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    return data.get("numparts", 0)
+
+
+def _participants_by_month_hybrid(
+    list_name: str,
+    domain: str,
+    active_months: dict[str, int],
+    emails: list,
+    base_url: str = PONYMAIL_API,
+    only_months: set[str] | None = None,
+) -> dict[str, int]:
+    """Compute distinct participants per month using the hybrid strategy.
+
+    - For months whose message count is at or below EMAILS_CAP_THRESHOLD,
+      the ``emails[]`` array is complete: count normalized distinct senders
+      client-side (cheap, honours (via GitHub) dedupe).
+    - For high-volume months (count > threshold), ``emails[]`` is capped,
+      so make one per-month ``numparts`` call each and trust the server.
+
+    Args:
+        active_months: {YYYY-MM: message_count} for this list (the window).
+        emails: the ``emails[]`` array from the same response.
+        only_months: if given, restrict computation to these month keys
+            (used by incremental refresh to only touch the current window).
+
+    Returns:
+        {YYYY-MM: distinct_participant_count}.
+    """
+    # Base client-side counts from the (possibly capped) emails[] array.
+    client_counts = _participants_by_month(emails)
+
+    result: dict[str, int] = {}
+    api_months: list[str] = []
+    for month_key, msg_count in active_months.items():
+        if only_months is not None and month_key not in only_months:
+            continue
+        if msg_count > EMAILS_CAP_THRESHOLD:
+            # emails[] unreliable for this month → needs an authoritative
+            # per-month call (collected below and run concurrently).
+            api_months.append(month_key)
+        else:
+            # Small month → emails[] is complete; client-side count is exact.
+            result[month_key] = client_counts.get(month_key, 0)
+
+    # Run the per-month numparts calls concurrently, but bounded to
+    # _MAX_CONCURRENCY to stay polite to the shared Pony Mail API. Each
+    # call falls back to the client-side count if it fails.
+    if api_months:
+        def _one(mk: str) -> tuple[str, int]:
+            np = _fetch_month_numparts(list_name, domain, mk, base_url)
+            return mk, (np if np is not None else client_counts.get(mk, 0))
+
+        workers = min(_MAX_CONCURRENCY, len(api_months))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for mk, count in pool.map(_one, api_months):
+                result[mk] = count
+
+    return result
 
 
 
@@ -66,7 +287,7 @@ def collect_list_stats(
     domain: str,
     base_url: str = PONYMAIL_API,
     timespan: str = ACTIVITY_THRESHOLD,
-    quick: bool = True,
+    quick: bool = False,
 ) -> dict | None:
     """Fetch stats for a single mailing list.
 
@@ -77,7 +298,10 @@ def collect_list_stats(
         domain: List domain (e.g. "httpd.apache.org").
         base_url: Pony Mail API base URL.
         timespan: Date filter in Pony Mail format (e.g. "6M", "3M").
-        quick: If True, return stats only (no email bodies).
+        quick: If True, return summary stats only. Must be False (the
+            default) to receive the per-message ``emails[]`` array that
+            participant-per-month counting relies on. quick=True sets
+            numparts=0 and omits emails[] entirely.
 
     Returns:
         Stats dict with hits, numparts, no_threads, etc. or None on failure.
@@ -117,7 +341,7 @@ def _fetch_current_month_stats(
     final count may have increased since then. Two months guarantees
     we pick up the tail end of the previous month.
     """
-    return collect_list_stats(list_name, domain, base_url, timespan="2M", quick=True)
+    return collect_list_stats(list_name, domain, base_url, timespan="2M", quick=False)
 
 
 def collect_mailing_list_stats(
@@ -186,6 +410,21 @@ def collect_mailing_list_stats(
                     # (current month + previous month)
                     cached_months[month_key] = count
                 list_data["active_months"] = cached_months
+                # Recompute participants for the refreshed months and merge.
+                # Past months are immutable; only the 2M window is overwritten.
+                # Use the hybrid strategy scoped to just the months this 2M
+                # window returned, so a high-volume current month still gets
+                # an authoritative per-month numparts call.
+                refreshed = set(months.keys())
+                fresh_parts = _participants_by_month_hybrid(
+                    list_name, domain, cached_months,
+                    stats.get("emails", []), base_url,
+                    only_months=refreshed,
+                )
+                cached_parts = list_data.get("participants_by_month", {})
+                for month_key, pcount in fresh_parts.items():
+                    cached_parts[month_key] = pcount
+                list_data["participants_by_month"] = cached_parts
                 # Update totals from the full month range
                 list_data["messages"] = sum(
                     v for k, v in cached_months.items()
@@ -214,10 +453,29 @@ def collect_mailing_list_stats(
     cache_lists = {}
 
     for list_name in project_lists:
-        stats = collect_list_stats(list_name, domain, base_url, timespan)
+        # Fetch one month wider than the reporting window so the emails[]
+        # array covers the participant boundary month (see
+        # _widen_timespan_one_month). active_months is full history either
+        # way; only the emails[] coverage matters here.
+        fetch_span = _widen_timespan_one_month(timespan)
+        stats = collect_list_stats(list_name, domain, base_url, fetch_span)
         if stats:
             list_id = f"{list_name}@{domain}"
             active_months = stats.get("active_months", {})
+
+            # Only compute participants for the reporting window; older
+            # months are never shown and must not trigger per-month calls.
+            # Use the participant-window start (one month earlier than the
+            # 12-month cutoff) so the chart's leftmost bar always has a
+            # participant value — see participant_window_start_str().
+            cutoff = CACHE.participant_window_start_str()
+            window_months = {
+                k: v for k, v in active_months.items() if k >= cutoff
+            }
+            pbm = _participants_by_month_hybrid(
+                list_name, domain, window_months,
+                stats.get("emails", []), base_url,
+            )
 
             list_entry = {
                 "list_name": list_name,
@@ -226,6 +484,7 @@ def collect_mailing_list_stats(
                 "participants": stats.get("numparts", 0),
                 "threads": stats.get("no_threads", 0),
                 "active_months": active_months,
+                "participants_by_month": pbm,
             }
             active_lists.append(list_entry)
             cache_lists[list_id] = list_entry
@@ -273,11 +532,26 @@ def _build_result_from_cache(
         if not recent_months:
             continue
 
+        all_parts = list_data.get("participants_by_month", {})
+        # Participants use a one-month-wider window than messages so the
+        # chart's leftmost bar always has a value (see
+        # participant_window_start_str()).
+        parts_cutoff = CACHE.participant_window_start_str()
+        recent_parts = {
+            k: v for k, v in all_parts.items() if k >= parts_cutoff
+        }
+
         active_lists.append({
             "list_name": list_data.get("list_name", list_id.split("@")[0]),
             "list_id": list_id,
             "messages": sum(recent_months.values()),
             "participants": list_data.get("participants", 0),
+            "participants_by_month": recent_parts,
+            # Peak monthly participants across the window — a defensible
+            # single-number summary. (A true 12-month distinct union isn't
+            # derivable from per-month counts; numparts in "participants"
+            # is the API's window-wide distinct total.)
+            "participants_peak_month": max(recent_parts.values(), default=0),
             "threads": list_data.get("threads", 0),
             "active_months": recent_months,
         })
