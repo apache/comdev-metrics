@@ -62,8 +62,9 @@
         .chart-bar {
             flex: 1; background: #d45500; border-radius: 3px 3px 0 0;
             min-height: 2px; position: relative;
+            z-index: 1;
         }
-        .chart-bar:hover { background: #ff6600; }
+        .chart-bar:hover { background: #ff6600; z-index: 10; }
         .chart-bar .tooltip {
             display: none; position: absolute; bottom: 100%; left: 50%;
             transform: translateX(-50%); background: #333; color: white;
@@ -115,7 +116,7 @@
     <div class="section">
         <h2>Mailing List Activity (12 Months)</h2>
         <table id="lists-table">
-            <thead><tr><th>List</th><th>Messages</th><th>Monthly Trend</th></tr></thead>
+            <thead><tr><th>List</th><th>Messages</th><th title="Distinct senders over the last 12 months (GitHub relays keyed by username; see docs)">Participants</th><th>Monthly Trend</th></tr></thead>
             <tbody></tbody>
         </table>
     </div>
@@ -237,6 +238,7 @@
                     row.innerHTML = `
                         <td>${list.list_name}@${ml.domain} <a href="https://lists.apache.org/list.html?${list.list_name}@${ml.domain}" target="_blank" title="View archive on lists.apache.org" style="margin-left:0.4rem">✉️</a></td>
                         <td>${quarterTotal}</td>
+                        <td>${list.participants || 0}</td>
                         <td><div class="sparkline">${sparkHtml}</div></td>
                     `;
                     row.style.cursor = 'pointer';
@@ -255,7 +257,7 @@
                 document.getElementById('stat-messages').textContent = '—';
                 document.getElementById('stat-lists').textContent = '0';
                 document.querySelector('#lists-table tbody').innerHTML =
-                    '<tr><td colspan="3" style="color:#999">No mailing list data collected yet. Run: uv run asfmetrics --project ' + id + '</td></tr>';
+                    '<tr><td colspan="4" style="color:#999">No mailing list data collected yet. Run: uv run asfmetrics --project ' + id + '</td></tr>';
             }
 
             // --- Committee / roster ---
@@ -448,6 +450,7 @@
             `${list.list_name}@${domain} — Monthly Messages`;
 
         const months = list.active_months || {};
+        const partsByMonth = list.participants_by_month || {};
 
         // Generate ALL months in the 12-month window (fill gaps with 0)
         const allMonths = [];
@@ -460,6 +463,11 @@
             cursor.setMonth(cursor.getMonth() + 1);
         }
 
+        // Parallel participant series (distinct senders per month)
+        const partsSeries = allMonths.map(([m]) => partsByMonth[m] || 0);
+        const maxParts = Math.max(...partsSeries, 1);
+        const hasParts = partsSeries.some(v => v > 0);
+
         const maxCount = Math.max(...allMonths.map(([_,c]) => c), 1);
         const chart = document.getElementById('chart');
         const labels = document.getElementById('chart-labels');
@@ -467,14 +475,17 @@
         labels.innerHTML = '';
         const existingTrend = document.getElementById('chart-wrapper').querySelector('.trend-overlay');
         if (existingTrend) existingTrend.remove();
+        const existingParts = document.getElementById('chart-wrapper').querySelector('.participants-overlay');
+        if (existingParts) existingParts.remove();
 
-        allMonths.forEach(([month, count]) => {
+        allMonths.forEach(([month, count], idx) => {
             const h = count > 0 ? Math.max(2, (count / maxCount) * 180) : 0;
             const bar = document.createElement('div');
             bar.className = 'chart-bar';
             bar.style.height = `${h}px`;
             if (count === 0) { bar.style.minHeight = '0'; bar.style.background = '#eee'; }
-            bar.innerHTML = `<div class="tooltip">${month}: ${count}</div>`;
+            const p = partsSeries[idx];
+            bar.innerHTML = `<div class="tooltip">${month}: ${count} msgs · ${p} participant${p === 1 ? '' : 's'}</div>`;
             chart.appendChild(bar);
 
             const lbl = document.createElement('span');
@@ -513,12 +524,58 @@
             const y2 = yForVal(slope * (n - 1) + intercept);
 
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+            svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;';
             svg.setAttribute('class', 'trend-overlay');
             svg.setAttribute('viewBox', `0 0 ${n} 200`);
             svg.setAttribute('preserveAspectRatio', 'none');
             svg.innerHTML = `<line class="trend-line" x1="0.5" y1="${y1}" x2="${n-0.5}" y2="${y2}" vector-effect="non-scaling-stroke"/>`;
             document.getElementById('chart-wrapper').appendChild(svg);
+        }
+
+        // Overlay participant count as a line + dots (distinct senders/month),
+        // scaled to its own axis so it reads regardless of message volume.
+        if (hasParts && allMonths.length >= 1) {
+            const n = allMonths.length;
+            // Map participant value to pixel Y (same 4..184 band as bars/trend).
+            const yForParts = (v) => 184 - (v / maxParts) * 180;
+            const stepX = n > 1 ? (n - 1) : 1;
+            const pts = partsSeries.map((v, i) => {
+                const x = n > 1 ? (i / stepX) * (n - 1) + 0.5 : n / 2;
+                return `${x.toFixed(3)},${yForParts(v).toFixed(2)}`;
+            });
+            const dots = partsSeries.map((v, i) => {
+                const x = n > 1 ? (i / stepX) * (n - 1) + 0.5 : n / 2;
+                return `<circle cx="${x.toFixed(3)}" cy="${yForParts(v).toFixed(2)}" r="0.12" fill="#1a73e8" vector-effect="non-scaling-stroke"/>`;
+            }).join('');
+            const svgP = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svgP.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;';
+            svgP.setAttribute('class', 'participants-overlay');
+            svgP.setAttribute('viewBox', `0 0 ${n} 200`);
+            svgP.setAttribute('preserveAspectRatio', 'none');
+            svgP.innerHTML =
+                `<polyline points="${pts.join(' ')}" fill="none" stroke="#1a73e8" stroke-width="2" vector-effect="non-scaling-stroke" opacity="0.85"/>` + dots;
+            document.getElementById('chart-wrapper').appendChild(svgP);
+        }
+
+        // Legend + peak-participant summary under the title.
+        const titleEl = document.getElementById('chart-title');
+        let legend = document.getElementById('parts-legend');
+        if (!legend) {
+            legend = document.createElement('div');
+            legend.id = 'parts-legend';
+            legend.style.cssText = 'font-size:0.8rem;color:#666;margin:-0.5rem 0 0.5rem 0';
+            titleEl.insertAdjacentElement('afterend', legend);
+        }
+        if (hasParts) {
+            const peak = Math.max(...partsSeries);
+            const total12 = list.participants || 0;
+            legend.style.display = 'block';
+            legend.innerHTML =
+                `<span style="display:inline-block;width:20px;height:0;border-top:2px solid #1a73e8;vertical-align:middle"></span> ` +
+                `Distinct participants/month (peak ${peak}` +
+                (total12 ? ` · ${total12} distinct over 12 mo` : '') + `)`;
+        } else {
+            legend.style.display = 'none';
         }
     }
 

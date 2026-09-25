@@ -3,6 +3,7 @@
 import json
 import argparse
 import sys
+import time
 from pathlib import Path
 
 from asfmetrics.config import (
@@ -11,6 +12,8 @@ from asfmetrics.config import (
 from asfmetrics.collectors.mailing_lists import (
     collect_mailing_list_stats,
     invalidate_cache,
+    reset_call_counter,
+    get_call_counter,
 )
 from asfmetrics.collectors.git_activity import (
     collect_git_activity,
@@ -118,19 +121,34 @@ def main():
         total = len(projects)
         collected = 0
         skipped = 0
+        ml_t0 = time.time()
 
         for i, project in enumerate(projects, 1):
             status(f"[{i}/{total}] {project}: fetching mailing lists...")
+            reset_call_counter()
+            p_t0 = time.time()
             stats = collect_mailing_list_stats(project, config, mail_domain_map)
+            p_dt = time.time() - p_t0
+            month_calls = get_call_counter()
             if stats:
                 active_count = len(stats["active_lists"])
                 total_msgs = sum(l["messages"] for l in stats["active_lists"])
                 write_json(project, stats, config)
                 collected += 1
-                status(f"[{i}/{total}] {project}: {active_count} active lists, {total_msgs} messages")
+                # Use status_done so the timing/call-count line PERSISTS
+                # (status() uses \r and would be overwritten by the next
+                # project, hiding the very numbers we're measuring).
+                status_done(
+                    f"[{i}/{total}] {project}: {active_count} active lists, "
+                    f"{total_msgs} messages "
+                    f"[{p_dt:.1f}s, {month_calls} per-month participant calls]"
+                )
             else:
                 skipped += 1
-                status(f"[{i}/{total}] {project}: no active lists")
+                status_done(f"[{i}/{total}] {project}: no active lists [{p_dt:.1f}s]")
+
+        ml_dt = time.time() - ml_t0
+        status(f"  mailing lists total time: {ml_dt:.1f}s")
 
         status_done(f"mailing lists: {collected} projects collected, {skipped} skipped (no activity)")
 

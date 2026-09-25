@@ -36,6 +36,31 @@ def twelve_months_ago_str() -> str:
     return f"{dt.year}-{dt.month:02d}"
 
 
+def participant_window_start_str() -> str:
+    """Return the earliest YYYY-MM the participant series must cover.
+
+    The frontend chart computes its left edge with JS
+    ``new Date(now); d.setMonth(d.getMonth() - 12)`` which, because JS
+    months are 0-based and the day can roll, lands ONE month earlier than
+    Python's ``now.replace(year=year-1)``. If the collector only emits
+    participants from ``twelve_months_ago_str()`` onward, the chart's
+    leftmost bar has no participant key and renders as 0 every month, on
+    every list (observed Sep 2026).
+
+    To guarantee coverage of the chart's leftmost month, the participant
+    window starts one month BEFORE the 12-month cutoff (i.e. 13 months
+    back). Extra months beyond what the chart shows are harmless — the
+    frontend only reads the keys it renders.
+    """
+    dt = twelve_months_ago()
+    # step back one more month (handle January -> previous December)
+    year, month = dt.year, dt.month - 1
+    if month < 1:
+        month = 12
+        year -= 1
+    return f"{year}-{month:02d}"
+
+
 # --- Cache directory ---
 
 def collector_cache_dir(config: dict, collector_name: str) -> Path:
