@@ -49,8 +49,8 @@ jobs:
           then
             rm -rf site/data # drop any existing data
             mkdir site/data
-            # unpack the archive
-            tar xvf /tmp/ghp/artifact.tar --directory site
+            # unpack the archive (except site files)
+            tar xvf /tmp/ghp/artifact.tar --directory site --exclude './*.html'
           else
             echo "No previous entry found"
           fi
