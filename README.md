@@ -219,7 +219,22 @@ Explains all data sources, methodology, what's measured, and limitations.
 
 ## Deployment
 
-**Production**: https://apache.github.io/comdev-metrics/ — built and deployed
+**Production**: 
+
+The code and data are installed on the projects.apache.org host, at /var/www/metrics
+with output at https://projects.apache.org/metrics.
+
+The build.sh script is run as a daily cron job:
+
+Sundays, 19:45
+./build.sh full >>/var/log/www-data/metrics_$(date "+\%Y-\%m").log
+
+Other days, 19:40
+./build.sh bare >>/var/log/www-data/metrics_$(date "+\%Y-\%m").log
+
+**Local testing**:
+
+https://apache.github.io/comdev-metrics/ — built and deployed
 via GitHub Actions.
 
 The GitHub Actions workflow (`.github/workflows/metrics.yml`):
