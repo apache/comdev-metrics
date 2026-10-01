@@ -5,6 +5,8 @@
 # Make sure there is a config file
 test -r config.yml || cp config.example.yml config.yml
 
+PATH=$PATH:/usr/local/bin # needed for cron jobs
+
 # Provide shortcuts
 case "$1" in
     full)
