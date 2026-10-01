@@ -11,7 +11,9 @@ PATH=$PATH:/usr/local/bin # needed for cron jobs
 case "$1" in
     full)
         shift
-        uv run asfmetrics "$@"
+        # always refresh the repos for the weekly run
+        # Although it takes a while, compared with the rest of the run it is fairly insignificant
+        uv run asfmetrics --refresh-repos "$@"
         ;;
     bare)
         shift
