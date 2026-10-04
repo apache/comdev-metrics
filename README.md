@@ -227,10 +227,10 @@ with output at https://projects.apache.org/metrics.
 The build.sh script is run as a daily cron job:
 
 Sundays, 19:45
-./build.sh full >>/var/log/www-data/metrics_$(date "+\%Y-\%m").log
+./build.sh weekly >>/var/log/www-data/metrics_$(date "+\%Y-\%m").log
 
 Other days, 19:40
-./build.sh bare >>/var/log/www-data/metrics_$(date "+\%Y-\%m").log
+./build.sh daily >>/var/log/www-data/metrics_$(date "+\%Y-\%m").log
 
 **Local testing**:
 
