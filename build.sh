@@ -2,7 +2,8 @@
 
 # build the site
 
-echo "Started $1 build at $(date)"
+OPT=$1
+echo "Started $OPT build at $(date)"
 
 # Make sure there is a config file
 test -r config.yml || cp config.example.yml config.yml
@@ -10,7 +11,7 @@ test -r config.yml || cp config.example.yml config.yml
 PATH=$PATH:/usr/local/bin # needed for cron jobs
 
 # Provide shortcuts
-case "$1" in
+case "$OPT" in
     weekly)
         shift
         # always refresh the repos for the weekly run
@@ -30,4 +31,4 @@ case "$1" in
         ;;
 esac
 
-echo "Ended $1 build at $(date)"
+echo "Ended $OPT build at $(date)"
