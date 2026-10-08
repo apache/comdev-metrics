@@ -31,4 +31,5 @@ case "$OPT" in
         ;;
 esac
 
-echo "Ended $OPT build at $(date)"
+# extra spaces so dates align in log
+echo "Ended   $OPT build at $(date)"
