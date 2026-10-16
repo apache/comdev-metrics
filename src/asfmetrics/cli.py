@@ -5,6 +5,7 @@ import argparse
 import sys
 import time
 from pathlib import Path
+from datetime import datetime
 
 from asfmetrics.config import (
     load_config, get_json_dir, get_cache_dir, PROJECT_MAP_FILE, MAILING_SUMMARY_FILE,
@@ -39,6 +40,11 @@ def status_done(msg: str):
     sys.stdout.write(f"\r\033[K  {msg}\n")
     sys.stdout.flush()
 
+def stamp(msg: str):
+    """Print a timing marker (for use in batch jobs)"""
+    date = datetime.now().strftime("%Y-%m-%d %H:%M")
+    sys.stdout.write(f"\n{date}  {msg}\n")
+    sys.stdout.flush()
 
 def main():
     parser = argparse.ArgumentParser(
@@ -68,6 +74,10 @@ def main():
     parser.add_argument(
         "--refresh-repos", action="store_true",
         help="Re-fetch the GitHub repo inventory (project → repos map)",
+    )
+    parser.add_argument(
+        "--timestamp", action="store_true",
+        help="Add timestamps",
     )
     args = parser.parse_args()
 
@@ -122,8 +132,11 @@ def main():
         collected = 0
         skipped = 0
         ml_t0 = time.time()
-
+        if args.timestamp:
+            stamp("Fetching mailing lists")
         for i, project in enumerate(projects, 1):
+            if args.timestamp:
+                stamp(project)
             status(f"[{i}/{total}] {project}: fetching mailing lists...")
             reset_call_counter()
             p_t0 = time.time()
@@ -182,8 +195,11 @@ def main():
         collected = 0
         skipped = 0
         errors = 0
-
+        if args.timestamp:
+            stamp("Fetching VCS activity")
         for i, project in enumerate(projects, 1):
+            if args.timestamp:
+                stamp(project)
             status(f"[{i}/{total}] {project}: fetching git activity...")
             try:
                 progress_str = f"[{i}/{total}] "
@@ -216,9 +232,15 @@ def main():
     else:
         print("  skipping git/VCS collection (--skip-git)")
 
+    if args.timestamp:
+        stamp("Trends")
+
     # Phase 4: Compute activity trend classifications
     print("  computing activity trend classifications...")
     compute_activity_trends(config)
+
+    if args.timestamp:
+        stamp("Done")
 
     print("\ndone.")
 

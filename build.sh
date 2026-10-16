@@ -16,11 +16,11 @@ case "$OPT" in
         shift
         # always refresh the repos for the weekly run
         # Although it takes a while, compared with the rest of the run it is fairly insignificant
-        uv run asfmetrics --refresh-repos "$@"
+        uv run asfmetrics --refresh-repos --time "$@"
         ;;
     daily)
         shift
-        uv run asfmetrics --skip-git --skip-mailing-lists "$@"
+        uv run asfmetrics --skip-git --skip-mailing-lists --time "$@"
         ;;
     '') # empty
         echo Expecting "weekly|daily| or parameters as below:"
