@@ -461,10 +461,10 @@ def _aggregate_svn_monthly(svn_url: str, since: datetime, project: str) -> dict:
             cmd, capture_output=True, text=True, timeout=120
         )
         if result.returncode != 0:
-            print(f"    warning: svn log failed for {project}: {result.stderr[:200]}")
+            print(f"    warning: svn log failed for {project} {svn_url}: {result.stderr[:200]}")
             return {}
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        print(f"    warning: svn log failed for {project}: {e}")
+        print(f"    warning: svn log failed for {project} {svn_url}: {e}")
         return {}
 
     entries = _parse_svn_log_xml(result.stdout)
