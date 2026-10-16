@@ -56,3 +56,6 @@ project_overrides:
   subversion:
     vcs: svn
     svn_path: https://svn.apache.org/repos/asf/subversion/trunk
+  perl:
+    vcs: svn
+    svn_path: https://svn.apache.org/repos/asf/perl/modperl/trunk
