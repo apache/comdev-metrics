@@ -3,7 +3,7 @@
 Public dashboard showing community activity metrics for Apache projects,
 with 12-month trend lines for meaningful context.
 
-**Status**: Working dashboard deployed at https://apache.github.io/comdev-metrics/
+**Status**: Working dashboard deployed at https://projects.apache.org/metrics/
 — fetches foundation data from projects.apache.org, mailing list stats from
 Pony Mail Foal API, Git/GitHub activity (with SVN support), new committer dates
 from Whimsy LDAP, and renders a per-project dashboard with trend lines,
@@ -262,8 +262,6 @@ cp .secrets.example .secrets   # add your GitHub token
 uv run asfmetrics --project comdev
 uv run pytest -v               # run tests
 ```
-
-**Planned**: Serve at `https://projects.apache.org/metrics` (via Alias or rewrite from the ComDev VM).
 
 ## License
 
