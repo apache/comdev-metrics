@@ -81,6 +81,10 @@ def main():
     )
     args = parser.parse_args()
 
+    if args.timestamp:
+        startTime = time.time()
+        stamp("Starting")
+
     try:
         config = load_config(args.config)
     except FileNotFoundError as e:
@@ -133,6 +137,7 @@ def main():
         skipped = 0
         ml_t0 = time.time()
         if args.timestamp:
+            startMail = time.time()
             stamp("Fetching mailing lists")
         for i, project in enumerate(projects, 1):
             if args.timestamp:
@@ -186,6 +191,8 @@ def main():
         with open(summary_path, "w", encoding='utf-8') as f:
             json.dump(summary, f)
         status_done(f"mailing summary: {len(summary)} lists written to {MAILING_SUMMARY_FILE}")
+        if args.timestamp:
+            stamp(f"Mail Done in {(time.time() - startMail):.2f} seconds")
     else:
         print("  skipping mailing list collection (--skip-mailing-lists)")
 
@@ -196,6 +203,7 @@ def main():
         skipped = 0
         errors = 0
         if args.timestamp:
+            startVCS = time.time()
             stamp("Fetching VCS activity")
         for i, project in enumerate(projects, 1):
             if args.timestamp:
@@ -229,6 +237,9 @@ def main():
         if rl["remaining"] is not None:
             print(f"  GitHub API budget: {rl['remaining']}/{rl['limit']} remaining "
                   f"({rl['used']} calls this session)")
+        if args.timestamp:
+            stamp(f"VCS Done in {(time.time() - startVCS):.2f} seconds")
+
     else:
         print("  skipping git/VCS collection (--skip-git)")
 
@@ -240,7 +251,7 @@ def main():
     compute_activity_trends(config)
 
     if args.timestamp:
-        stamp("Done")
+        stamp(f"Done in {(time.time() - startTime):.2f} seconds")
 
     print("\ndone.")
 
