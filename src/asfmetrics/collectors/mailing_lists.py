@@ -17,7 +17,6 @@ See: incubator-ponymail-foal/docs/API.md
 """
 
 from datetime import datetime
-import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
 import re
