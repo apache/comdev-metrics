@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Metrics</title>
+    <!-- Shared look and navigation with projects.apache.org (this site is served at /metrics/) -->
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/js/jquery.js" type="text/javascript"></script>
+    <script src="/js/script.js" type="text/javascript"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
+        #metrics, #metrics * { box-sizing: border-box; }
+        #metrics * { margin: 0; padding: 0; }
+        #metrics {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             line-height: 1.6;
             color: #333;
@@ -15,9 +20,9 @@
             padding: 2rem;
             background: #f8f9fa;
         }
-        a { color: #d45500; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        h1 { margin-bottom: 0.25rem; color: #1a1a2e; }
+        #metrics a { color: #d45500; text-decoration: none; }
+        #metrics a:hover { text-decoration: underline; }
+        #metrics h1 { margin-bottom: 0.25rem; color: #1a1a2e; }
         .breadcrumb { color: #666; margin-bottom: 1.5rem; font-size: 0.9rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
         .breadcrumb .ext-link { color: #999; }
         .stats-bar {
@@ -34,9 +39,9 @@
             margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         .section h2 { margin-bottom: 1rem; color: #1a1a2e; font-size: 1.2rem; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 0.4rem 0.8rem; border-bottom: 1px solid #eee; }
-        th { font-weight: 600; color: #666; font-size: 0.8rem; text-transform: uppercase; }
+        #metrics table { width: 100%; border-collapse: collapse; }
+        #metrics th, #metrics td { text-align: left; padding: 0.4rem 0.8rem; border-bottom: 1px solid #eee; }
+        #metrics th { font-weight: 600; color: #666; font-size: 0.8rem; text-transform: uppercase; }
         .sparkline {
             display: inline-flex; align-items: flex-end; gap: 2px; height: 30px;
         }
@@ -78,9 +83,16 @@
         .chart-labels span { flex: 1; text-align: center; }
         #loading { color: #999; font-style: italic; padding: 2rem; text-align: center; }
         #error { color: #dc3545; display: none; padding: 2rem; text-align: center; }
+            #metrics { padding-top: 1rem; }
+        #metrics h1 { font-family: Capriola, Helvetica, sans-serif; }
     </style>
 </head>
 <body>
+<div id="logo"><h1><div style="padding-top: 30px;">Community Metrics</div></h1></div>
+<div id='cssmenu'>
+</div>
+<div id="metrics">
+
     <div class="breadcrumb"><a href="index.html">← All Projects</a><span class="ext-link" id="pao-link"></span></div>
     <h1 id="project-title">Loading...</h1>
     <div id="loading">Loading project data...</div>
@@ -271,10 +283,9 @@
                     const roster = pmc.roster || {};
                     document.getElementById('stat-roster').textContent = Object.keys(roster).length;
 
-                    // Link to projects.apache.org for full project metadata
+                    // Link to the committee page (roster, description, repositories, homepage)
                     document.getElementById('pao-link').innerHTML =
-                        `<a href="https://projects.apache.org/committee.html?${id}" target="_blank">` +
-                        `View on projects.apache.org →</a>`;
+                        `<a href="/committee.html?${id}">Committee details →</a>`;
                 }
             }
 
@@ -664,5 +675,11 @@
         }
     }
     </script>
+</div>
+<div id="footer">
+   Managed by the <a href="https://community.apache.org">Apache Community Development Project</a>.<br/>
+   Copyright&copy; the Apache Software Foundation. Licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a><br/>
+   Apache&reg; and the Apache logo are trademarks of The Apache Software Foundation.
+</div>
 </body>
 </html>

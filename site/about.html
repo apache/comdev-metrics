@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>About the Data — ASF Community Metrics</title>
+    <!-- Shared look and navigation with projects.apache.org (this site is served at /metrics/) -->
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/js/jquery.js" type="text/javascript"></script>
+    <script src="/js/script.js" type="text/javascript"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
+        #metrics, #metrics * { box-sizing: border-box; }
+        #metrics * { margin: 0; padding: 0; }
+        #metrics {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             line-height: 1.8;
             color: #333;
@@ -15,25 +20,32 @@
             padding: 2rem;
             background: #f8f9fa;
         }
-        h1 { margin-bottom: 0.25rem; color: #1a1a2e; }
-        h2 { margin-top: 2rem; margin-bottom: 0.5rem; color: #1a1a2e; }
-        h3 { margin-top: 1.5rem; margin-bottom: 0.3rem; color: #444; }
-        a { color: #d45500; text-decoration: none; }
-        a:hover { text-decoration: underline; }
+        #metrics h1 { margin-bottom: 0.25rem; color: #1a1a2e; }
+        #metrics h2 { margin-top: 2rem; margin-bottom: 0.5rem; color: #1a1a2e; }
+        #metrics h3 { margin-top: 1.5rem; margin-bottom: 0.3rem; color: #444; }
+        #metrics a { color: #d45500; text-decoration: none; }
+        #metrics a:hover { text-decoration: underline; }
         .breadcrumb { color: #666; margin-bottom: 1.5rem; font-size: 0.9rem; }
         .section {
             background: white; border-radius: 8px; padding: 1.5rem;
             margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-        th, td { text-align: left; padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee; }
-        th { font-weight: 600; color: #666; font-size: 0.85rem; }
-        code { background: #f0f0f0; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.9em; }
-        ul { margin-left: 1.5rem; margin-bottom: 1rem; }
-        li { margin-bottom: 0.3rem; }
+        #metrics table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+        #metrics th, #metrics td { text-align: left; padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee; }
+        #metrics th { font-weight: 600; color: #666; font-size: 0.85rem; }
+        #metrics code { background: #f0f0f0; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.9em; }
+        #metrics ul { margin-left: 1.5rem; margin-bottom: 1rem; }
+        #metrics li { margin-bottom: 0.3rem; }
+            #metrics { padding-top: 1rem; }
+        #metrics h1 { font-family: Capriola, Helvetica, sans-serif; }
     </style>
 </head>
 <body>
+<div id="logo"><h1><div style="padding-top: 30px;">Community Metrics</div></h1></div>
+<div id='cssmenu'>
+</div>
+<div id="metrics">
+
     <div class="breadcrumb"><a href="index.html">← Dashboard</a></div>
     <h1>About the Data</h1>
 
@@ -63,12 +75,12 @@
                 </tr>
                 <tr>
                     <td><strong>Project roster &amp; PMC data</strong></td>
-                    <td><a href="https://projects.apache.org/">projects.apache.org</a></td>
+                    <td><a href="/">projects.apache.org</a></td>
                     <td>Daily-generated JSON from LDAP, Whimsy, and committee-info.txt</td>
                 </tr>
                 <tr>
                     <td><strong>Releases</strong></td>
-                    <td><a href="https://projects.apache.org/">projects.apache.org</a></td>
+                    <td><a href="/">projects.apache.org</a></td>
                     <td>Release history JSON (scraped from dist archives)</td>
                 </tr>
                 <tr>
@@ -226,5 +238,11 @@
         <p>Feedback and contributions welcome. See <code>README.md</code> for setup instructions.</p>
     </div>
 
+</div>
+<div id="footer">
+   Managed by the <a href="https://community.apache.org">Apache Community Development Project</a>.<br/>
+   Copyright&copy; the Apache Software Foundation. Licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a><br/>
+   Apache&reg; and the Apache logo are trademarks of The Apache Software Foundation.
+</div>
 </body>
 </html>
