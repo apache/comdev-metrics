@@ -55,8 +55,8 @@ These are regenerated hourly by Whimsy cron jobs **only when underlying data cha
 
 ## What projects.apache.org adds
 
-- **DOAP aggregation**: Project descriptions, categories, programming languages, homepage URLs
-- **Release data**: Scraped from various sources
+- **Project metadata**: built nightly from the ASF release catalog (no longer from DOAP files)
+- **Release data**: no longer used from here; we read the release catalog directly (see below)
 - **Cronjob Python scripts**: Run daily, cache to JSON in SVN
 
 Source: `https://svn.apache.org/repos/asf/comdev/projects.apache.org/trunk/`
@@ -69,9 +69,8 @@ Source: `https://svn.apache.org/repos/asf/comdev/projects.apache.org/trunk/`
 | `committees-retired.json` | Retired committees | Retirement detection |
 | `people.json` | Committer → project membership mapping | New committer project affiliation |
 | `podlings.json` | Current podlings + status | Active project list |
-| `releases.json` | Release history per project | Dashboard + per-project pages |
 | `repositories.json` | Git/SVN repository listing | SVN auto-detection |
-| `projects.json` | Master project metadata (from DOAP files) | Reference |
+| `projects.json` | Project metadata (from the release catalog) | Reference |
 
 ## Our Strategy
 
@@ -142,3 +141,20 @@ https://projects.apache.org/json/foundation/repositories.json
 https://projects.apache.org/json/foundation/projects.json
 https://projects.apache.org/json/foundation/committees-retired.json
 ```
+
+## Releases: the ASF release catalog
+
+Release data comes straight from the ASF release catalog, which Tooling has
+designated the authoritative source:
+
+    https://release-catalog.apache.org/project_releases.json
+
+`collectors/projects_apache_org.py` (`collect_releases`) fetches it each run,
+groups releases by committee id (podlings by their bare podling name, as in
+`podlings.json`), and writes `site/data/_cache/releases.json` in the shape the
+pages expect: `{ project_id: { "<name> <version>": "YYYY-MM-DD" } }`. If the
+fetch fails the previous cached file is kept.
+
+Podling releases are in a separate file,
+`https://release-catalog.apache.org/podling_releases.json`, keyed by bare
+podling id; they are merged in under that id.

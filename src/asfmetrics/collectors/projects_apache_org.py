@@ -2,7 +2,12 @@
 
 This is the pragmatic "get started quick" data source. These JSON files
 are generated daily by comdev-projects cronjobs from authoritative sources
-(committee-info.txt, LDAP, DOAP files, etc.) and published publicly.
+(Whimsy committee-info, LDAP, the Incubator, the ASF release catalog) and
+published publicly.
+
+Release data is the exception: it is read directly from the ASF release
+catalog (RELEASE_CATALOG_URL), which Tooling has designated the
+authoritative source, rather than via projects.apache.org.
 
 Later we can swap individual data points for direct Whimsy/LDAP/GitHub
 queries, but this gets us a full dataset on day one with zero auth.
@@ -11,6 +16,7 @@ Public JSON base: https://projects.apache.org/json/foundation/
 """
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -28,10 +34,15 @@ FOUNDATION_FILES = {
     "committees-retired.json": "Retired committees",
     "people.json": "Committer → project membership mapping",
     "podlings.json": "Current podlings + status",
-    "releases.json": "Release history per project", # needed by website
     "repositories.json": "Git/SVN repository listing",
-    "projects.json": "Master project metadata (from DOAP files)",
+    "projects.json": "Project metadata (from the ASF release catalog)",
 }
+
+# Authoritative release data (Apache Trusted Releases / Tooling)
+RELEASE_CATALOG_URL = "https://release-catalog.apache.org/project_releases.json"
+# Podling releases are published separately, keyed by bare podling id
+PODLING_CATALOG_URL = "https://release-catalog.apache.org/podling_releases.json"
+RELEASES_FILE = "releases.json"   # written to the cache dir; read by the website
 
 # Whimsy public JSON for committer creation dates
 WHIMSY_LDAP_PEOPLE = "https://whimsy.apache.org/public/public_ldap_people.json"
@@ -92,6 +103,91 @@ def fetch_all_foundation_data(config: dict) -> dict:
 
     print(f"    fetched {len(data)}/{len(FOUNDATION_FILES)} files successfully")
     return data
+
+
+def fetch_release_catalog(timeout: int = 120, url: str = RELEASE_CATALOG_URL) -> dict | None:
+    """Fetch the ASF release catalog.
+
+    Returns:
+        Dict keyed by catalog project key, each with 'pmc', 'name' and a
+        'release' list of {'name', 'revision', 'created'}; or None on failure.
+    """
+    try:
+        resp = httpx.get(url, timeout=timeout, follow_redirects=True)
+        resp.raise_for_status()
+        data = resp.json()
+    except (httpx.HTTPError, ValueError) as e:
+        print(f"    warning: failed to fetch release catalog: {e}")
+        return None
+    if not isinstance(data, dict):
+        print("    warning: release catalog has unexpected shape")
+        return None
+    return data
+
+
+def build_releases_by_project(catalog: dict, podling_ids=()) -> dict[str, dict[str, str]]:
+    """Group catalog releases by the ids the dashboard uses.
+
+    The dashboard identifies a TLP by its committee id and a podling by its
+    bare podling name (as in podlings.json). The catalog's 'pmc' field
+    already follows that convention, but some podling entries may carry
+    'incubator' or an 'incubator-' prefix, so both are normalised here.
+
+    Returns:
+        { project_id: { "<name> <version>": "YYYY-MM-DD" } }; the same shape
+        as the old projects.apache.org releases.json, so the pages are
+        unchanged.
+    """
+    podlings = set(podling_ids)
+    out: dict[str, dict[str, str]] = {}
+    for key, entry in catalog.items():
+        if not isinstance(entry, dict):
+            continue
+        pmc = (entry.get("pmc") or key.split("-")[0]).strip()
+        if pmc == "incubator" or pmc.startswith("incubator-"):
+            bare = re.sub(r"^incubator-", "", key if pmc == "incubator" else pmc)
+            # match the longest podling id that the key starts with
+            pmc = next((p for p in sorted(podlings, key=len, reverse=True)
+                        if bare == p or bare.startswith(p + "-")), bare)
+        name = re.sub(r"^Apache\s+", "", entry.get("name") or key)
+        for rel in entry.get("release") or []:
+            if not isinstance(rel, dict):
+                continue
+            date = (rel.get("created") or "")[:10]
+            if not re.match(r"\d{4}-\d{2}-\d{2}$", date):
+                continue
+            version = rel.get("revision") or rel.get("version") or ""
+            relname = re.sub(r"^Apache\s+", "", rel.get("name") or name)
+            label = f"{relname} {version}".strip()
+            out.setdefault(pmc, {})[label] = date
+    return out
+
+
+def collect_releases(data: dict, config: dict) -> dict:
+    """Build and cache releases.json from the release catalog.
+
+    Falls back to the previously cached file if the catalog can't be fetched.
+    """
+    cache_path = get_cache_dir(config) / RELEASES_FILE
+    print("    fetching release catalog (authoritative release data)...")
+    catalog = fetch_release_catalog()
+    if catalog is None:
+        if cache_path.exists():
+            print("    using cached releases.json")
+            with open(cache_path, encoding="utf-8") as f:
+                return json.load(f)
+        return {}
+    podlings = data.get("podlings") or {}
+    releases = build_releases_by_project(catalog, podlings.keys() if isinstance(podlings, dict) else ())
+    # Podlings: separate file, already keyed by bare podling id
+    podling_catalog = fetch_release_catalog(url=PODLING_CATALOG_URL) or {}
+    for pid, rels in build_releases_by_project(podling_catalog).items():
+        releases.setdefault(pid, {}).update(rels)
+    with open(cache_path, "w", encoding="utf-8") as f:
+        json.dump(releases, f, indent=2, sort_keys=True)
+    n = sum(len(v) for v in releases.values())
+    print(f"    {n} releases for {len(releases)} projects from the release catalog")
+    return releases
 
 
 def build_mail_domain_map(_config: dict) -> dict[str, str]:
@@ -316,6 +412,7 @@ def collect_projects_apache_org(config: dict) -> dict:
     """
     print("  collecting from projects.apache.org...")
     data = fetch_all_foundation_data(config)
+    data["releases"] = collect_releases(data, config)
 
     state_dir = get_state_dir(config)
 

@@ -53,7 +53,7 @@ uv run pytest -v
 
 ## What It Does
 
-1. **Fetches** foundation-wide data from projects.apache.org JSON files (committees, rosters, releases, podlings, repositories)
+1. **Fetches** foundation-wide data from projects.apache.org JSON files (committees, rosters, podlings, repositories) and releases from the [ASF release catalog](https://release-catalog.apache.org/project_releases.json)
 2. **Detects** new committers via Whimsy LDAP `createTimestamp`, cross-referenced with project group membership
 3. **Detects** roster changes (new committers/PMC members) by diffing committee data between runs
 4. **Discovers** all mailing lists per project via Pony Mail Foal `preferences.json`

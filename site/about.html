@@ -83,7 +83,7 @@
                 <tr>
                     <td><strong>Releases</strong></td>
                     <td><a href="/">projects.apache.org</a></td>
-                    <td>Release history JSON (scraped from dist archives)</td>
+                    <td>The <a href="https://release-catalog.apache.org/project_releases.json">ASF release catalog</a>, read directly (the authoritative source, maintained via Apache Trusted Releases)</td>
                 </tr>
                 <tr>
                     <td><strong>Repository inventory</strong></td>
@@ -140,7 +140,7 @@
         (blue = committers, orange = PMC members). Per-project pages list individual names and dates.</p>
 
         <h3>Releases</h3>
-        <p>Release publications in the past 12 months, as recorded by projects.apache.org.</p>
+        <p>Releases in the past 12 months, from the ASF release catalog. Each release is counted once per component it was published for.</p>
 
         <h3>Activity Trends</h3>
         <p>A deterministic classification of quarter-over-quarter trends. Compares the two
@@ -162,7 +162,7 @@
             <li>Committer detection relies on LDAP <code>createTimestamp</code> — this reflects
             when the ASF account was created, which is typically the committer grant date but
             may differ slightly for people who had accounts before being invited to a project.</li>
-            <li>Release counts may include multiple artifacts per release for some projects.</li>
+            <li>Committees that release many components (e.g. Maven, Sling, Commons) count each component release separately.</li>
             <li>Bot activity is not yet filtered from commit/PR counts.</li>
             <li>Projects that are SVN-only but not yet detected may show zero git activity.</li>
             <li>GitHub API rate limits (5000/hour) mean large initial runs may take 1–2 hours.</li>
