@@ -1,6 +1,6 @@
 """Tests for pagination caps / truncation flags in collectors/git_activity.py."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -44,7 +44,7 @@ def _pager(total, make):
     return fake_get, calls
 
 
-SINCE = datetime(2025, 11, 1)
+SINCE = datetime(2025, 11, 1, tzinfo=UTC)
 
 
 @pytest.fixture(autouse=True)

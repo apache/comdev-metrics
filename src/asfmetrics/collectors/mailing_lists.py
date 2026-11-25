@@ -16,7 +16,7 @@ API Reference: Pony Mail Foal uses POST with JSON body to /api/*.json.
 See: incubator-ponymail-foal/docs/API.md
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 import threading
 from concurrent.futures import ThreadPoolExecutor
 import re
@@ -136,7 +136,7 @@ def _participants_by_month(emails: list) -> dict[str, int]:
         epoch = e.get("epoch")
         if epoch is None:
             continue
-        dt = datetime.utcfromtimestamp(epoch)
+        dt = datetime.fromtimestamp(epoch, tz=UTC)
         month_key = f"{dt.year}-{dt.month:02d}"
         key = _normalize_sender(e.get("from", ""))
         if key is None:
@@ -434,7 +434,7 @@ def collect_mailing_list_stats(
                 updated = True
 
         if updated:
-            cache["_fetched_at"] = datetime.now().strftime("%Y-%m-%d")
+            cache["_fetched_at"] = datetime.now(UTC).strftime("%Y-%m-%d")
             CACHE.save_cache(project, cache, config, _COLLECTOR_NAME)
 
         return _build_result_from_cache(project, domain, timespan, cache)
@@ -493,7 +493,7 @@ def collect_mailing_list_stats(
 
     # Save cache
     cache_data = {
-        "_fetched_at": datetime.now().strftime("%Y-%m-%d"),
+        "_fetched_at": datetime.now(UTC).strftime("%Y-%m-%d"),
         "_project": project,
         "_domain": domain,
         "lists": cache_lists,

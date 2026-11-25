@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "ruff>=0.6"]
 
 [project.scripts]
 asfmetrics = "asfmetrics.cli:main"
@@ -24,3 +24,16 @@ packages = ["src/asfmetrics"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# F: pyflakes (unused imports/variables, undefined names)
+# E9/E7: syntax and statement errors
+# B: bugbear (likely bugs)
+# DTZ: naive datetime calls without a timezone
+# UP: pyupgrade
+select = ["F", "E7", "E9", "B", "DTZ", "UP"]

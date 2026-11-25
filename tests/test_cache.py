@@ -1,6 +1,6 @@
 """Tests for collectors/cache.py — shared caching utilities."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from asfmetrics.collectors.cache import (
     cache_is_current,
@@ -28,7 +28,7 @@ def test_current_month_str_format():
 def test_twelve_months_ago_returns_datetime():
     result = twelve_months_ago()
     assert isinstance(result, datetime)
-    now = datetime.now()
+    now = datetime.now(UTC)
     assert result.year == now.year - 1
     assert result.month == now.month
 
@@ -48,7 +48,7 @@ def test_twelve_months_ago_str_matches_datetime():
 # --- cache_is_current ---
 
 def test_cache_is_current_today():
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
     assert cache_is_current({"_fetched_at": today}) is True
 
 

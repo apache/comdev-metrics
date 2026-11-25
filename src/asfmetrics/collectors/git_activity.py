@@ -33,7 +33,7 @@ import json
 import subprocess
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import UTC, datetime
 
 import httpx
 
@@ -99,7 +99,7 @@ def _check_rate_limit() -> None:
         if reset_at:
             now = int(time.time())
             wait_seconds = max(reset_at - now + 5, 0)  # +5s buffer
-            reset_time = datetime.fromtimestamp(reset_at).strftime("%H:%M:%S")
+            reset_time = datetime.fromtimestamp(reset_at, tz=UTC).astimezone().strftime("%H:%M:%S")
             print(f"\n{'='*60}")
             print("  ⚠️  GITHUB API RATE LIMIT WARNING")
             print(f"  Remaining: {remaining}/{_rate_limit['limit']}")
@@ -141,7 +141,7 @@ def _month_key(dt: datetime) -> str:
 
 def _first_of_month(month_str: str) -> datetime:
     """Parse YYYY-MM into a datetime at the 1st of that month."""
-    return datetime.strptime(month_str + "-01", "%Y-%m-%d")
+    return datetime.strptime(month_str + "-01", "%Y-%m-%d").replace(tzinfo=UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +185,7 @@ def _fetch_github_commits(
     headers = _github_headers(token)
     commits = []
     page = 1
-    since_str = since.isoformat() + "Z"
+    since_str = since.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     truncated = False
 
     while True:
@@ -256,7 +256,7 @@ def _fetch_github_prs(
     headers = _github_headers(token)
     prs = []
     page = 1
-    since_str = since.isoformat() + "Z"
+    since_str = since.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     truncated = False
 
     while True:
@@ -434,7 +434,10 @@ def collect_github_activity(
         # Stale cache — re-fetch from the date of last fetch (inclusive)
         # Overlap is fine: monthly data gets overwritten, not appended
         fetched_at = cache.get("_fetched_at", "")
-        since = datetime.strptime(fetched_at, "%Y-%m-%d") if fetched_at else CACHE.twelve_months_ago()
+        since = (
+            datetime.strptime(fetched_at, "%Y-%m-%d").replace(tzinfo=UTC)
+            if fetched_at else CACHE.twelve_months_ago()
+        )
         max_c, max_p = _page_caps(config)
         fresh, fresh_truncated = _aggregate_github_monthly(
             repos, org, since, token, project=project, progress=progress,
@@ -457,7 +460,7 @@ def collect_github_activity(
                 prev_truncated.pop(repo_name, None)
         prev_truncated.update(fresh_truncated)
         cache["_truncated"] = prev_truncated
-        cache["_fetched_at"] = datetime.now().strftime("%Y-%m-%d")
+        cache["_fetched_at"] = datetime.now(UTC).strftime("%Y-%m-%d")
         CACHE.save_cache(project, cache, config, _COLLECTOR_NAME)
         return _build_result_from_cache(project, "github", cache, org=org, repos=repos)
 
@@ -470,7 +473,7 @@ def collect_github_activity(
     )
 
     cache_data = {
-        "_fetched_at": datetime.now().strftime("%Y-%m-%d"),
+        "_fetched_at": datetime.now(UTC).strftime("%Y-%m-%d"),
         "_project": project,
         "_vcs": "github",
         "_org": org,
@@ -574,7 +577,10 @@ def collect_svn_activity(
 
     if cache and cache.get("repos_data"):
         fetched_at = cache.get("_fetched_at", "")
-        since = datetime.strptime(fetched_at, "%Y-%m-%d") if fetched_at else CACHE.twelve_months_ago()
+        since = (
+            datetime.strptime(fetched_at, "%Y-%m-%d").replace(tzinfo=UTC)
+            if fetched_at else CACHE.twelve_months_ago()
+        )
         fresh = _aggregate_svn_monthly(svn_url, since, project)
 
         cached_repos = cache.get("repos_data", {})
@@ -585,7 +591,7 @@ def collect_svn_activity(
                 cached_repos[repo_name][month_key] = month_data
 
         cache["repos_data"] = cached_repos
-        cache["_fetched_at"] = datetime.now().strftime("%Y-%m-%d")
+        cache["_fetched_at"] = datetime.now(UTC).strftime("%Y-%m-%d")
         CACHE.save_cache(project, cache, config, _COLLECTOR_NAME)
         return _build_result_from_cache(project, "svn", cache, svn_url=svn_url)
 
@@ -594,7 +600,7 @@ def collect_svn_activity(
     repos_data = _aggregate_svn_monthly(svn_url, since, project)
 
     cache_data = {
-        "_fetched_at": datetime.now().strftime("%Y-%m-%d"),
+        "_fetched_at": datetime.now(UTC).strftime("%Y-%m-%d"),
         "_project": project,
         "_vcs": "svn",
         "_svn_url": svn_url,

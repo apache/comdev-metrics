@@ -5,7 +5,7 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from datetime import datetime
+from datetime import UTC, datetime
 
 from asfmetrics.config import (
     load_config, get_json_dir, get_cache_dir, PROJECT_MAP_FILE, MAILING_SUMMARY_FILE,
@@ -42,7 +42,7 @@ def status_done(msg: str):
 
 def stamp(msg: str):
     """Print a timing marker (for use in batch jobs)"""
-    date = datetime.now().strftime("%Y-%m-%d %H:%M")
+    date = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M")
     sys.stdout.write(f"\n{date}  {msg}\n")
     sys.stdout.flush()
 
@@ -150,7 +150,7 @@ def main():
             month_calls = get_call_counter()
             if stats:
                 active_count = len(stats["active_lists"])
-                total_msgs = sum(l["messages"] for l in stats["active_lists"])
+                total_msgs = sum(lst["messages"] for lst in stats["active_lists"])
                 write_json(project, stats, config)
                 collected += 1
                 # Use status_done so the timing/call-count line PERSISTS

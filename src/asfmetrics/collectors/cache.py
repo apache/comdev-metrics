@@ -10,7 +10,7 @@ Each collector stores its cache in a subdirectory under _cache/
 """
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from asfmetrics.config import get_cache_dir
@@ -20,13 +20,13 @@ from asfmetrics.config import get_cache_dir
 
 def current_month_str() -> str:
     """Return current month as YYYY-MM."""
-    now = datetime.now()
+    now = datetime.now(UTC)
     return f"{now.year}-{now.month:02d}"
 
 
 def twelve_months_ago() -> datetime:
     """Return datetime 12 months before now."""
-    now = datetime.now()
+    now = datetime.now(UTC)
     return now.replace(year=now.year - 1)
 
 
@@ -110,7 +110,7 @@ def cache_is_current(cache: dict) -> bool:
     Next-day or later runs always refresh current-month data.
     """
     fetched_at = cache.get("_fetched_at", "")
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
     return fetched_at == today
 
 

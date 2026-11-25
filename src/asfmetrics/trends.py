@@ -11,7 +11,7 @@ Output: site/data/_cache/activity_trends.json
 
 import json
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from asfmetrics.config import get_json_dir, get_cache_dir
 
@@ -37,7 +37,7 @@ def _determine_quarters(today: date = None) -> dict:
     Returns dict with month lists and display labels.
     """
     if today is None:
-        today = date.today()
+        today = datetime.now(UTC).date()
 
     # Current month is partial — exclude it.
     # Recent quarter = the 3 most recent full months.
@@ -211,7 +211,7 @@ def compute_activity_trends(config: dict) -> dict:
     dormant.sort(key=lambda e: e["git_total_12mo"] + e["ml_recent"])
 
     result = {
-        "generated": date.today().isoformat(),
+        "generated": datetime.now(UTC).date().isoformat(),
         "window": {
             "recent_months": recent_months,
             "prior_months": prior_months,
