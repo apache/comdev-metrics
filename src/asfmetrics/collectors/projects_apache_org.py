@@ -17,7 +17,7 @@ Public JSON base: https://projects.apache.org/json/foundation/
 
 import json
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -326,12 +326,24 @@ def detect_roster_changes(current_data: dict, state_dir: Path) -> dict:
     return changes
 
 
+def _committee_ids(data: dict) -> set[str]:
+    """Ids of current top-level project committees from committees.json."""
+    committees = data.get("committees", [])
+    if isinstance(committees, dict):
+        return set(committees)
+    return {c["id"] for c in committees if isinstance(c, dict) and "id" in c}
+
+
 def collect_new_committers(data: dict, _config: dict) -> dict:
     """Detect new committers using Whimsy LDAP createTimestamp.
 
     Fetches public_ldap_people.json from Whimsy and cross-references
     with people.json to find committers created in the last 12 months,
     grouped by project.
+
+    Only top-level project committees (from committees.json) are counted.
+    Podling and other non-PMC LDAP groups are ignored, and accounts that
+    belong only to such groups are not counted in the totals.
 
     Returns:
         Dict with: by_project (project -> list of {name, id, date}),
@@ -349,9 +361,10 @@ def collect_new_committers(data: dict, _config: dict) -> dict:
 
     people_data = data.get("people", {})
     ldap_people = ldap_data.get("people", ldap_data)
+    pmc_ids = _committee_ids(data)
 
     # 12-month cutoff
-    now = datetime.now()
+    now = datetime.now(UTC)
     cutoff = now.replace(year=now.year - 1)
 
     new_committers_by_project = {}
@@ -368,22 +381,25 @@ def collect_new_committers(data: dict, _config: dict) -> dict:
             continue
 
         try:
-            created = datetime.strptime(create_ts, "%Y%m%d%H%M%SZ")
+            created = datetime.strptime(create_ts, "%Y%m%d%H%M%SZ").replace(tzinfo=UTC)
         except (ValueError, TypeError):
             continue
 
         if created < cutoff:
             continue
 
-        # This person was created in the last 12 months — they're a new committer
+        # Only committer groups of top-level projects; this skips podlings,
+        # "-pmc" groups and meta-groups such as apldap, incubator and member.
+        groups = [g for g in person_info.get("groups", []) if g in pmc_ids]
+        if not groups:
+            continue
+
+        # Created in the last 12 months with a TLP group: a new committer
         month_key = created.strftime("%Y-%m")
         by_month[month_key] = by_month.get(month_key, 0) + 1
         total += 1
 
-        for group in person_info.get("groups", []):
-            # Skip meta-groups
-            if group.endswith("-pmc") or group in ("apldap", "incubator", "member"):
-                continue
+        for group in groups:
             if group not in new_committers_by_project:
                 new_committers_by_project[group] = []
             new_committers_by_project[group].append({
