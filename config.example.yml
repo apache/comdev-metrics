@@ -23,6 +23,11 @@ data_sources:
     org: apache
     # zero_checkout: API-only, no local clones
     zero_checkout: true
+    # Pagination caps per repo per run (pages of 100). When a cap is hit the
+    # repo is flagged "truncated" in <project>_git.json and a warning is
+    # printed. 0 = unlimited.
+    max_commit_pages: 50
+    max_pr_pages: 30
 
 output:
   format: both  # static_html, json, or both

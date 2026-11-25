@@ -53,6 +53,14 @@ _COLLECTOR_NAME = "git"
 # Threshold: if remaining calls drops below this, pause and wait for reset
 RATE_LIMIT_FLOOR = 50
 
+# Pagination caps (pages of 100 items) per repo per run. Configurable via
+# data_sources.git.max_commit_pages / max_pr_pages; 0 or None = unlimited.
+# When a cap is hit the result is flagged as truncated rather than silently
+# undercounting.
+DEFAULT_MAX_COMMIT_PAGES = 50
+DEFAULT_MAX_PR_PAGES = 30
+PER_PAGE = 100
+
 # Global state for rate limit tracking
 _rate_limit = {
     "limit": None,       # Total budget (e.g. 5000)
@@ -167,19 +175,22 @@ def _fetch_github_commits(
     repo: str,
     since: datetime,
     token: str | None = None,
-) -> list[dict]:
+    max_pages: int | None = DEFAULT_MAX_COMMIT_PAGES,
+) -> tuple[list[dict], bool]:
     """Fetch commit activity for a repo from GitHub API.
 
-    Returns list of {date, author} dicts.
+    Returns (commits, truncated): commits is a list of {date, author} dicts;
+    truncated is True if max_pages was reached while more data remained.
     """
     headers = _github_headers(token)
     commits = []
     page = 1
     since_str = since.isoformat() + "Z"
+    truncated = False
 
     while True:
         url = f"{GITHUB_API}/repos/{org}/{repo}/commits"
-        params = {"since": since_str, "per_page": 100, "page": page}
+        params = {"since": since_str, "per_page": PER_PAGE, "page": page}
         _check_rate_limit()
 
         try:
@@ -214,13 +225,16 @@ def _fetch_github_commits(
             if commit_date:
                 commits.append({"date": commit_date, "author": author})
 
-        page += 1
+        if len(batch) < PER_PAGE:
+            break  # last page
 
-        # Safety: don't paginate forever
-        if page > 50:
+        if max_pages and page >= max_pages:
+            truncated = True
             break
 
-    return commits
+        page += 1
+
+    return commits, truncated
 
 
 def _fetch_github_prs(
@@ -228,15 +242,22 @@ def _fetch_github_prs(
     repo: str,
     since: datetime,
     token: str | None = None,
-) -> list[dict]:
+    max_pages: int | None = DEFAULT_MAX_PR_PAGES,
+) -> tuple[list[dict], bool]:
     """Fetch PR activity for a repo from GitHub API.
 
-    Returns list of {created_at, merged_at, closed_at, state} dicts.
+    PRs are fetched newest-first, so hitting the cap drops the *oldest* PRs
+    in the window (undercounting early months).
+
+    Returns (prs, truncated): prs is a list of
+    {created_at, merged_at, closed_at, state} dicts; truncated is True if
+    max_pages was reached before paginating past the window start.
     """
     headers = _github_headers(token)
     prs = []
     page = 1
     since_str = since.isoformat() + "Z"
+    truncated = False
 
     while True:
         url = f"{GITHUB_API}/repos/{org}/{repo}/pulls"
@@ -244,7 +265,7 @@ def _fetch_github_prs(
             "state": "all",
             "sort": "created",
             "direction": "desc",
-            "per_page": 100,
+            "per_page": PER_PAGE,
             "page": page,
         }
         _check_rate_limit()
@@ -275,14 +296,16 @@ def _fetch_github_prs(
                 "state": pr.get("state"),
             })
 
-        if all_too_old:
+        if all_too_old or len(batch) < PER_PAGE:
+            break
+
+        if max_pages and page >= max_pages:
+            truncated = True
             break
 
         page += 1
-        if page > 30:
-            break
 
-    return prs
+    return prs, truncated
 
 
 def _aggregate_github_monthly(
@@ -292,12 +315,17 @@ def _aggregate_github_monthly(
     token: str | None,
     project: str = "",
     progress: str = "",
-) -> dict:
+    max_commit_pages: int | None = DEFAULT_MAX_COMMIT_PAGES,
+    max_pr_pages: int | None = DEFAULT_MAX_PR_PAGES,
+) -> tuple[dict, dict]:
     """Fetch GitHub data per-repo into monthly buckets.
 
-    Returns dict of {repo_name: {month_str: {commits, committers, committer_list, prs_opened, prs_merged, prs_closed}}}
+    Returns (per_repo, truncated):
+      per_repo: {repo_name: {month_str: {commits, committers, committer_list, prs_opened, prs_merged, prs_closed}}}
+      truncated: {repo_name: ["commits"|"prs", ...]} for repos where a pagination cap was hit
     """
     per_repo = {}
+    truncated = {}
 
     total_repos = len(repos)
     for repo_idx, repo in enumerate(repos, 1):
@@ -312,7 +340,9 @@ def _aggregate_github_monthly(
         monthly_prs_closed = defaultdict(int)
 
         # Commits
-        commits = _fetch_github_commits(org, repo, since, token)
+        commits, commits_truncated = _fetch_github_commits(
+            org, repo, since, token, max_pages=max_commit_pages
+        )
         for c in commits:
             month = _month_key(c["date"])
             monthly_commits[month] += 1
@@ -322,7 +352,19 @@ def _aggregate_github_monthly(
         sys.stdout.flush()
 
         # PRs
-        prs = _fetch_github_prs(org, repo, since, token)
+        prs, prs_truncated = _fetch_github_prs(
+            org, repo, since, token, max_pages=max_pr_pages
+        )
+
+        hit = [k for k, v in (("commits", commits_truncated), ("prs", prs_truncated)) if v]
+        if hit:
+            truncated[repo] = hit
+            sys.stdout.write(
+                f"\n    warning: {org}/{repo}: pagination cap reached for "
+                f"{', '.join(hit)} — counts are incomplete "
+                f"(raise data_sources.git.max_commit_pages / max_pr_pages)\n"
+            )
+            sys.stdout.flush()
         for pr in prs:
             created_month = pr["created_at"][:7]  # "YYYY-MM"
             monthly_prs_opened[created_month] += 1
@@ -357,7 +399,16 @@ def _aggregate_github_monthly(
         sys.stdout.write(f"\r\033[K  {progress}{project}: [{repo_idx}/{total_repos}] {org}/{repo} ✓ {len(commits)} commits, {len(prs)} PRs{rl_info}")
         sys.stdout.flush()
 
-    return per_repo
+    return per_repo, truncated
+
+
+def _page_caps(config: dict) -> tuple[int | None, int | None]:
+    """Read pagination caps from config (0/None = unlimited)."""
+    git_config = config.get("data_sources", {}).get("git", {})
+    return (
+        git_config.get("max_commit_pages", DEFAULT_MAX_COMMIT_PAGES),
+        git_config.get("max_pr_pages", DEFAULT_MAX_PR_PAGES),
+    )
 
 
 
@@ -384,7 +435,11 @@ def collect_github_activity(
         # Overlap is fine: monthly data gets overwritten, not appended
         fetched_at = cache.get("_fetched_at", "")
         since = datetime.strptime(fetched_at, "%Y-%m-%d") if fetched_at else CACHE.twelve_months_ago()
-        fresh = _aggregate_github_monthly(repos, org, since, token, project=project, progress=progress)
+        max_c, max_p = _page_caps(config)
+        fresh, fresh_truncated = _aggregate_github_monthly(
+            repos, org, since, token, project=project, progress=progress,
+            max_commit_pages=max_c, max_pr_pages=max_p,
+        )
 
         cached_repos = cache.get("repos_data", {})
         for repo_name, fresh_months in fresh.items():
@@ -394,13 +449,25 @@ def collect_github_activity(
                 cached_repos[repo_name][month_key] = month_data
 
         cache["repos_data"] = cached_repos
+        # Truncation reflects the latest fetch: a repo that was capped before
+        # stays flagged until an uncapped fetch covers it.
+        prev_truncated = cache.get("_truncated", {})
+        for repo_name in fresh:
+            if repo_name not in fresh_truncated:
+                prev_truncated.pop(repo_name, None)
+        prev_truncated.update(fresh_truncated)
+        cache["_truncated"] = prev_truncated
         cache["_fetched_at"] = datetime.now().strftime("%Y-%m-%d")
         CACHE.save_cache(project, cache, config, _COLLECTOR_NAME)
         return _build_result_from_cache(project, "github", cache, org=org, repos=repos)
 
     # No cache — full 12-month fetch
     since = CACHE.twelve_months_ago()
-    repos_data = _aggregate_github_monthly(repos, org, since, token, project=project, progress=progress)
+    max_c, max_p = _page_caps(config)
+    repos_data, truncated = _aggregate_github_monthly(
+        repos, org, since, token, project=project, progress=progress,
+        max_commit_pages=max_c, max_pr_pages=max_p,
+    )
 
     cache_data = {
         "_fetched_at": datetime.now().strftime("%Y-%m-%d"),
@@ -409,6 +476,7 @@ def collect_github_activity(
         "_org": org,
         "_repos": repos,
         "repos_data": repos_data,
+        "_truncated": truncated,
     }
     CACHE.save_cache(project, cache_data, config, _COLLECTOR_NAME)
     return _build_result_from_cache(project, "github", cache_data, org=org, repos=repos)
@@ -622,6 +690,13 @@ def _build_result_from_cache(
         result["repos"] = repos or cache.get("_repos", [])
         result["totals"]["prs_opened"] = total_prs_opened
         result["totals"]["prs_merged"] = total_prs_merged
+        truncated = {
+            r: kinds for r, kinds in cache.get("_truncated", {}).items()
+            if r in repos_data
+        }
+        result["truncated"] = bool(truncated)
+        if truncated:
+            result["truncated_repos"] = truncated
     elif vcs == "svn":
         result["svn_url"] = svn_url or cache.get("_svn_url", "")
 
