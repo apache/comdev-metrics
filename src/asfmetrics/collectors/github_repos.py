@@ -64,7 +64,7 @@ def _update_gh_rate_limit(resp) -> None:
 
 def _check_gh_rate_limit() -> None:
     """Pause if approaching rate limit."""
-    from datetime import datetime
+    from datetime import UTC, datetime
     remaining = _gh_rate["remaining"]
     if remaining is None:
         return
@@ -73,7 +73,7 @@ def _check_gh_rate_limit() -> None:
         if reset_at:
             now = int(time.time())
             wait_seconds = max(reset_at - now + 5, 0)
-            reset_time = datetime.fromtimestamp(reset_at).strftime("%H:%M:%S")
+            reset_time = datetime.fromtimestamp(reset_at, tz=UTC).astimezone().strftime("%H:%M:%S")
             print(f"\n{'='*60}")
             print("  ⚠️  GITHUB API RATE LIMIT WARNING (repo inventory)")
             print(f"  Remaining: {remaining}/{_gh_rate['limit']} | Resets at: {reset_time} ({wait_seconds}s)")
@@ -184,7 +184,6 @@ def fetch_all_repos(token: str | None = None) -> list[dict]:
                 "archived": r["archived"],
                 "fork": r["fork"],
                 "description": r.get("description") or "",
-                "default_branch": r.get("default_branch", "main"),
             })
 
         page += 1
@@ -221,7 +220,6 @@ def build_project_map(repos: list[dict]) -> dict:
             "name": repo["name"],
             "sub_repo": info["sub_repo"],
             "archived": repo["archived"],
-            "default_branch": repo["default_branch"],
         })
 
         if info["incubating"]:
