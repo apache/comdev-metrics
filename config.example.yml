@@ -28,6 +28,11 @@ data_sources:
     # printed. 0 = unlimited.
     max_commit_pages: 50
     max_pr_pages: 30
+    # Bot accounts are left out of commit/committer counts and reported as
+    # excluded.bot_commits (built-in list in src/asfmetrics/bots.py).
+    # Add project-specific bots, or exempt a person whose login looks like one:
+    # extra_bot_logins: [some-release-bot]
+    # not_bot_logins: [someone-bot]
 
 output:
   format: both  # static_html, json, or both

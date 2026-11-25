@@ -39,6 +39,7 @@ import httpx
 
 from asfmetrics.collectors.github_repos import resolve_github_token, GITHUB_API
 from asfmetrics.collectors import cache as CACHE
+from asfmetrics.bots import bot_config, is_bot
 from asfmetrics.config import get_cache_dir, get_json_dir, PROJECT_MAP_FILE
 
 
@@ -179,7 +180,8 @@ def _fetch_github_commits(
 ) -> tuple[list[dict], bool]:
     """Fetch commit activity for a repo from GitHub API.
 
-    Returns (commits, truncated): commits is a list of {date, author} dicts;
+    Returns (commits, truncated): commits is a list of
+    {date, author, login, name, email} dicts;
     truncated is True if max_pages was reached while more data remained.
     """
     headers = _github_headers(token)
@@ -217,13 +219,19 @@ def _fetch_github_commits(
                 except (ValueError, TypeError):
                     pass
 
-            author = (
-                (c.get("author") or {}).get("login")
-                or (c.get("commit") or {}).get("author", {}).get("name", "unknown")
-            )
+            login = (c.get("author") or {}).get("login")
+            git_author = (c.get("commit") or {}).get("author", {}) or {}
+            name = git_author.get("name")
+            author = login or name or "unknown"
 
             if commit_date:
-                commits.append({"date": commit_date, "author": author})
+                commits.append({
+                    "date": commit_date,
+                    "author": author,
+                    "login": login,
+                    "name": name,
+                    "email": git_author.get("email"),
+                })
 
         if len(batch) < PER_PAGE:
             break  # last page
@@ -250,7 +258,8 @@ def _fetch_github_prs(
     in the window (undercounting early months).
 
     Returns (prs, truncated): prs is a list of
-    {created_at, merged_at, closed_at, state} dicts; truncated is True if
+    {created_at, merged_at, closed_at, state, draft, author} dicts;
+    truncated is True if
     max_pages was reached before paginating past the window start.
     """
     headers = _github_headers(token)
@@ -294,6 +303,8 @@ def _fetch_github_prs(
                 "merged_at": pr.get("merged_at"),
                 "closed_at": pr.get("closed_at"),
                 "state": pr.get("state"),
+                "draft": bool(pr.get("draft")),
+                "author": (pr.get("user") or {}).get("login"),
             })
 
         if all_too_old or len(batch) < PER_PAGE:
@@ -317,11 +328,16 @@ def _aggregate_github_monthly(
     progress: str = "",
     max_commit_pages: int | None = DEFAULT_MAX_COMMIT_PAGES,
     max_pr_pages: int | None = DEFAULT_MAX_PR_PAGES,
+    bots: tuple[frozenset[str], frozenset[str]] = (frozenset(), frozenset()),
 ) -> tuple[dict, dict]:
     """Fetch GitHub data per-repo into monthly buckets.
 
     Returns (per_repo, truncated):
-      per_repo: {repo_name: {month_str: {commits, committers, committer_list, prs_opened, prs_merged, prs_closed}}}
+      per_repo: {repo_name: {month_str: {commits, committers, committer_list,
+                 prs_opened, prs_merged, prs_closed, bot_commits, draft_prs}}}
+        Bot commits are left out of commits/committers and counted in
+        bot_commits. Draft PRs are left out of the PR counts and counted
+        in draft_prs (by month opened).
       truncated: {repo_name: ["commits"|"prs", ...]} for repos where a pagination cap was hit
     """
     per_repo = {}
@@ -338,6 +354,9 @@ def _aggregate_github_monthly(
         monthly_prs_opened = defaultdict(int)
         monthly_prs_merged = defaultdict(int)
         monthly_prs_closed = defaultdict(int)
+        monthly_bot_commits = defaultdict(int)
+        monthly_draft_prs = defaultdict(int)
+        extra_bots, allow_bots = bots
 
         # Commits
         commits, commits_truncated = _fetch_github_commits(
@@ -345,6 +364,9 @@ def _aggregate_github_monthly(
         )
         for c in commits:
             month = _month_key(c["date"])
+            if is_bot(c.get("login"), c.get("name"), c.get("email"), extra_bots, allow_bots):
+                monthly_bot_commits[month] += 1
+                continue
             monthly_commits[month] += 1
             monthly_committers[month].add(c["author"])
 
@@ -367,6 +389,10 @@ def _aggregate_github_monthly(
             sys.stdout.flush()
         for pr in prs:
             created_month = pr["created_at"][:7]  # "YYYY-MM"
+            if pr.get("draft"):
+                # Still a draft when fetched. Merged PRs are never drafts.
+                monthly_draft_prs[created_month] += 1
+                continue
             monthly_prs_opened[created_month] += 1
 
             if pr.get("merged_at"):
@@ -379,6 +405,8 @@ def _aggregate_github_monthly(
         all_months = sorted(
             set(monthly_commits.keys())
             | set(monthly_prs_opened.keys())
+            | set(monthly_bot_commits.keys())
+            | set(monthly_draft_prs.keys())
         )
 
         if all_months:
@@ -391,6 +419,8 @@ def _aggregate_github_monthly(
                     "prs_opened": monthly_prs_opened[month],
                     "prs_merged": monthly_prs_merged[month],
                     "prs_closed": monthly_prs_closed[month],
+                    "bot_commits": monthly_bot_commits[month],
+                    "draft_prs": monthly_draft_prs[month],
                 }
             per_repo[repo] = repo_data
 
@@ -441,7 +471,7 @@ def collect_github_activity(
         max_c, max_p = _page_caps(config)
         fresh, fresh_truncated = _aggregate_github_monthly(
             repos, org, since, token, project=project, progress=progress,
-            max_commit_pages=max_c, max_pr_pages=max_p,
+            max_commit_pages=max_c, max_pr_pages=max_p, bots=bot_config(config),
         )
 
         cached_repos = cache.get("repos_data", {})
@@ -469,7 +499,7 @@ def collect_github_activity(
     max_c, max_p = _page_caps(config)
     repos_data, truncated = _aggregate_github_monthly(
         repos, org, since, token, project=project, progress=progress,
-        max_commit_pages=max_c, max_pr_pages=max_p,
+        max_commit_pages=max_c, max_pr_pages=max_p, bots=bot_config(config),
     )
 
     cache_data = {
@@ -630,7 +660,8 @@ def _build_result_from_cache(
         active_repos: [
             {repo_name, commits, committers, monthly: {month: {commits, committers, ...}}}
         ],
-        totals: {commits, committers, prs_opened, prs_merged}
+        totals: {commits, committers, prs_opened, prs_merged},
+        excluded: {bot_commits, draft_prs}   (GitHub only)
     }
     """
     cutoff = CACHE.twelve_months_ago_str()
@@ -641,12 +672,17 @@ def _build_result_from_cache(
     total_commits = 0
     total_prs_opened = 0
     total_prs_merged = 0
+    total_bot_commits = 0
+    total_draft_prs = 0
 
     for repo_name, monthly in sorted(repos_data.items()):
         # Filter to 12-month window
         filtered = {k: v for k, v in monthly.items() if k >= cutoff}
         if not filtered:
             continue
+
+        total_bot_commits += sum(d.get("bot_commits", 0) for d in filtered.values())
+        total_draft_prs += sum(d.get("draft_prs", 0) for d in filtered.values())
 
         repo_commits = sum(d.get("commits", 0) for d in filtered.values())
         if repo_commits == 0:
@@ -696,6 +732,10 @@ def _build_result_from_cache(
         result["repos"] = repos or cache.get("_repos", [])
         result["totals"]["prs_opened"] = total_prs_opened
         result["totals"]["prs_merged"] = total_prs_merged
+        result["excluded"] = {
+            "bot_commits": total_bot_commits,
+            "draft_prs": total_draft_prs,
+        }
         truncated = {
             r: kinds for r, kinds in cache.get("_truncated", {}).items()
             if r in repos_data
