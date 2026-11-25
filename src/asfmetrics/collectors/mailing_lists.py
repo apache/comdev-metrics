@@ -328,6 +328,42 @@ def collect_list_stats(
     return data
 
 
+def _backfill_missing_participants(
+    list_name: str,
+    domain: str,
+    active_months: dict[str, int],
+    participants: dict[str, int],
+    base_url: str = PONYMAIL_API,
+    skip: set[str] | None = None,
+) -> int:
+    """Fill in participant counts for window months that have mail but no count.
+
+    Past months are never refetched, so a month whose participant count was
+    recorded as 0 (or never recorded) stays wrong forever. That happened to
+    caches built while stats.json was called with quick=True, which drops
+    the sender from emails[] and zeroes numparts.
+
+    For each month in the participant window with messages > 0 and a
+    missing or zero participant count, make one per-month numparts call.
+    Once repaired the month is nonzero, so it costs nothing on later runs.
+
+    Modifies ``participants`` in place. Returns the number of months repaired.
+    """
+    window_start = CACHE.participant_window_start_str()
+    skip = skip or set()
+    missing = sorted(
+        k for k, v in active_months.items()
+        if k >= window_start and v > 0 and not participants.get(k) and k not in skip
+    )
+    repaired = 0
+    for month_key in missing:
+        np = _fetch_month_numparts(list_name, domain, month_key, base_url)
+        if np:
+            participants[month_key] = np
+            repaired += 1
+    return repaired
+
+
 def _fetch_current_month_stats(
     list_name: str,
     domain: str,
@@ -423,6 +459,13 @@ def collect_mailing_list_stats(
                 cached_parts = list_data.get("participants_by_month", {})
                 for month_key, pcount in fresh_parts.items():
                     cached_parts[month_key] = pcount
+                # Repair older window months that have mail but a zero or
+                # missing participant count (e.g. caches built under the
+                # quick=True bug).
+                _backfill_missing_participants(
+                    list_name, domain, cached_months, cached_parts,
+                    base_url, skip=refreshed,
+                )
                 list_data["participants_by_month"] = cached_parts
                 # Update totals from the full month range
                 list_data["messages"] = sum(
