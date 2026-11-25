@@ -42,9 +42,52 @@ def status_done(msg: str):
 
 def stamp(msg: str):
     """Print a timing marker (for use in batch jobs)"""
-    date = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M")
+    date = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S")
     sys.stdout.write(f"\n{date}  {msg}\n")
     sys.stdout.flush()
+
+def _fmt_secs(secs: float) -> str:
+    """Format a duration as e.g. '45.2s', '12m 03s' or '1h 05m 09s'."""
+    secs = round(secs)
+    h, rem = divmod(secs, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}h {m:02d}m {s:02d}s"
+    if m:
+        return f"{m}m {s:02d}s"
+    return f"{s}s"
+
+
+def report_timings(phases: dict, project_times: dict, total: float, top_n: int = 10) -> None:
+    """Print a phase breakdown and the slowest projects per phase.
+
+    Args:
+        phases: {phase name: seconds}, in run order.
+        project_times: {phase name: {project: seconds}}.
+        total: wall-clock seconds for the whole run.
+        top_n: how many slowest projects to list per phase.
+    """
+    print(f"\n{'=' * 60}")
+    print("  Timing summary")
+    print(f"{'=' * 60}")
+    width = max((len(p) for p in phases), default=10)
+    for name, secs in phases.items():
+        share = (secs / total * 100) if total else 0
+        print(f"  {name:<{width}}  {_fmt_secs(secs):>12}  {share:5.1f}%")
+    print(f"  {'Total':<{width}}  {_fmt_secs(total):>12}")
+
+    for name, times in project_times.items():
+        if not times:
+            continue
+        ranked = sorted(times.items(), key=lambda kv: -kv[1])[:top_n]
+        phase_total = sum(times.values())
+        print(f"\n  Slowest {len(ranked)} of {len(times)} projects: {name}")
+        pw = max(len(p) for p, _ in ranked)
+        for project, secs in ranked:
+            share = (secs / phase_total * 100) if phase_total else 0
+            print(f"    {project:<{pw}}  {_fmt_secs(secs):>12}  {share:5.1f}%")
+    print()
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -81,8 +124,10 @@ def main():
     )
     args = parser.parse_args()
 
+    run_t0 = time.time()
+    phases: dict[str, float] = {}
+    project_times: dict[str, dict[str, float]] = {}
     if args.timestamp:
-        startTime = time.time()
         stamp("Starting")
 
     try:
@@ -109,17 +154,29 @@ def main():
         or not project_map_path.exists()
     )
     if need_inventory and not args.skip_git:
+        if args.timestamp:
+            stamp("Fetching GitHub repo inventory")
+        t0 = time.time()
         status("fetching GitHub repo inventory (apache org)...")
         inv = collect_repo_inventory(config)
+        phases["Repo inventory"] = time.time() - t0
         status_done(
             f"repo inventory: {inv['repo_count']} repos → {inv['project_count']} projects"
+            f" [{_fmt_secs(phases['Repo inventory'])}]"
         )
 
     # Phase 1: Fetch foundation-wide data from projects.apache.org
+    if args.timestamp:
+        stamp("Fetching foundation data")
+    t0 = time.time()
     status("fetching foundation data from projects.apache.org...")
     pao_result = collect_projects_apache_org(config)
     write_json("_foundation", pao_result["roster_changes"], config)
-    status_done(f"foundation data: {len(pao_result['active_projects'])} active projects")
+    phases["Foundation data"] = time.time() - t0
+    status_done(
+        f"foundation data: {len(pao_result['active_projects'])} active projects"
+        f" [{_fmt_secs(phases['Foundation data'])}]"
+    )
 
     mail_domain_map = pao_result.get("mail_domain_map", {})
     # Determine project list
@@ -136,8 +193,8 @@ def main():
         collected = 0
         skipped = 0
         ml_t0 = time.time()
+        mail_times = project_times.setdefault("Mailing lists", {})
         if args.timestamp:
-            startMail = time.time()
             stamp("Fetching mailing lists")
         for i, project in enumerate(projects, 1):
             if args.timestamp:
@@ -147,6 +204,7 @@ def main():
             p_t0 = time.time()
             stats = collect_mailing_list_stats(project, config, mail_domain_map)
             p_dt = time.time() - p_t0
+            mail_times[project] = p_dt
             month_calls = get_call_counter()
             if stats:
                 active_count = len(stats["active_lists"])
@@ -191,8 +249,9 @@ def main():
         with open(summary_path, "w", encoding='utf-8') as f:
             json.dump(summary, f)
         status_done(f"mailing summary: {len(summary)} lists written to {MAILING_SUMMARY_FILE}")
+        phases["Mailing lists"] = time.time() - ml_t0
         if args.timestamp:
-            stamp(f"Mail Done in {(time.time() - startMail):.2f} seconds")
+            stamp(f"Mail done in {_fmt_secs(phases['Mailing lists'])}")
     else:
         print("  skipping mailing list collection (--skip-mailing-lists)")
 
@@ -202,13 +261,15 @@ def main():
         collected = 0
         skipped = 0
         errors = 0
+        vcs_t0 = time.time()
+        git_times = project_times.setdefault("Git/VCS activity", {})
         if args.timestamp:
-            startVCS = time.time()
             stamp("Fetching VCS activity")
         for i, project in enumerate(projects, 1):
             if args.timestamp:
                 stamp(project)
             status(f"[{i}/{total}] {project}: fetching git activity...")
+            p_t0 = time.time()
             try:
                 progress_str = f"[{i}/{total}] "
                 git_stats = collect_git_activity(project, config, progress=progress_str)
@@ -216,14 +277,21 @@ def main():
                     write_json(f"{project}_git", git_stats, config)
                     commits = git_stats["totals"]["commits"]
                     committers = git_stats["totals"]["committers"]
-                    status(f"[{i}/{total}] {project}: {commits} commits, {committers} committers")
+                    p_dt = time.time() - p_t0
+                    msg = f"[{i}/{total}] {project}: {commits} commits, {committers} committers [{p_dt:.1f}s]"
+                    # With --timestamp, keep each line so per-project times stay visible
+                    (status_done if args.timestamp else status)(msg)
                     collected += 1
                 else:
                     skipped += 1
-                    status(f"[{i}/{total}] {project}: no git activity")
+                    p_dt = time.time() - p_t0
+                    msg = f"[{i}/{total}] {project}: no git activity [{p_dt:.1f}s]"
+                    (status_done if args.timestamp else status)(msg)
             except Exception as e:
                 errors += 1
-                status_done(f"  ✗ {project}: {e}")
+                p_dt = time.time() - p_t0
+                status_done(f"  ✗ {project}: {e} [{p_dt:.1f}s]")
+            git_times[project] = p_dt
 
             # Print budget every 20 projects
             if i % 20 == 0:
@@ -237,8 +305,9 @@ def main():
         if rl["remaining"] is not None:
             print(f"  GitHub API budget: {rl['remaining']}/{rl['limit']} remaining "
                   f"({rl['used']} calls this session)")
+        phases["Git/VCS activity"] = time.time() - vcs_t0
         if args.timestamp:
-            stamp(f"VCS Done in {(time.time() - startVCS):.2f} seconds")
+            stamp(f"VCS done in {_fmt_secs(phases['Git/VCS activity'])}")
 
     else:
         print("  skipping git/VCS collection (--skip-git)")
@@ -247,11 +316,15 @@ def main():
         stamp("Trends")
 
     # Phase 4: Compute activity trend classifications
+    t0 = time.time()
     print("  computing activity trend classifications...")
     compute_activity_trends(config)
+    phases["Activity trends"] = time.time() - t0
 
     if args.timestamp:
-        stamp(f"Done in {(time.time() - startTime):.2f} seconds")
+        total_secs = time.time() - run_t0
+        stamp(f"Done in {_fmt_secs(total_secs)}")
+        report_timings(phases, project_times, total_secs)
 
     print("\ndone.")
 
